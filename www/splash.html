@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PinRoam — Splash</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#000;display:flex;flex-direction:column;align-items:center;font-family:system-ui,sans-serif;}
+  .previews{display:flex;gap:24px;padding:32px 24px 0;flex-wrap:wrap;justify-content:center;align-items:flex-end;}
+  .preview{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .preview-label{color:#333;font-size:10px;letter-spacing:2px;}
+  canvas{display:block;}
+  .controls{display:flex;gap:10px;padding:20px;flex-wrap:wrap;justify-content:center;}
+  button{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#888;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:11px;letter-spacing:1px;}
+  button:hover{background:rgba(255,255,255,0.1);color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="previews">
+  <div class="preview">
+    <canvas id="mobile" width="390" height="844" style="width:195px;height:422px;border-radius:24px;"></canvas>
+    <div class="preview-label">MOBILE 390×844</div>
+  </div>
+  <div class="preview">
+    <canvas id="desktop" width="1280" height="720" style="width:480px;height:270px;border-radius:12px;"></canvas>
+    <div class="preview-label">DESKTOP 1280×720</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button onclick="exportPNG('mobile',390,844,'pinroam-splash-mobile.png')">↓ Mobile PNG</button>
+  <button onclick="exportPNG('desktop',1280,720,'pinroam-splash-desktop.png')">↓ Desktop PNG</button>
+</div>
+
+<script>
+const stars=Array.from({length:80},()=>({
+  x:Math.random(),y:Math.random(),
+  r:Math.random()*1.4+0.3,
+  speed:Math.random()*0.4+0.1,
+  phase:Math.random()*Math.PI*2
+}));
+const particles=Array.from({length:22},()=>({
+  x:Math.random(),y:Math.random(),
+  vx:(Math.random()-0.5)*0.0006,vy:(Math.random()-0.5)*0.0006,
+  r:Math.random()*0.004+0.001,
+  col:Math.random()>0.5?'59,130,246':'100,170,255',
+  op:Math.random()*0.35+0.08
+}));
+
+function rr(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function glassCard(ctx,x,y,w,h,r){
+  rr(ctx,x,y,w,h,r);
+  const bg=ctx.createLinearGradient(x,y,x+w,y+h);
+  bg.addColorStop(0,'rgba(255,255,255,0.065)');bg.addColorStop(1,'rgba(255,255,255,0.02)');
+  ctx.fillStyle=bg;ctx.fill();
+  ctx.save();rr(ctx,x,y,w,h,r);ctx.clip();
+  const sh=ctx.createLinearGradient(x,y,x+w*0.65,y+h*0.42);
+  sh.addColorStop(0,'rgba(255,255,255,0.12)');sh.addColorStop(1,'rgba(255,255,255,0.0)');
+  ctx.fillStyle=sh;ctx.fillRect(x,y,w,h);ctx.restore();
+  rr(ctx,x,y,w,h,r);
+  const rim=ctx.createLinearGradient(x,y,x+w,y+h);
+  rim.addColorStop(0,'rgba(255,255,255,0.22)');rim.addColorStop(1,'rgba(255,255,255,0.04)');
+  ctx.strokeStyle=rim;ctx.lineWidth=1;ctx.stroke();
+}
+
+function glassBtn(ctx,x,y,w,h,label,t){
+  ctx.save();
+  ctx.shadowColor='rgba(59,130,246,0.4)';
+  ctx.shadowBlur=16+Math.sin(t*0.04)*5;
+  rr(ctx,x,y,w,h,h/2);
+  const bg=ctx.createLinearGradient(x,y,x,y+h);
+  bg.addColorStop(0,'rgba(65,130,255,0.58)');bg.addColorStop(1,'rgba(20,60,190,0.46)');
+  ctx.fillStyle=bg;ctx.fill();ctx.restore();
+  ctx.save();rr(ctx,x,y,w,h,h/2);ctx.clip();
+  const sh=ctx.createLinearGradient(x,y,x+w*0.5,y+h*0.48);
+  sh.addColorStop(0,'rgba(255,255,255,0.28)');sh.addColorStop(1,'rgba(255,255,255,0.0)');
+  ctx.fillStyle=sh;ctx.fillRect(x,y,w,h);ctx.restore();
+  rr(ctx,x,y,w,h,h/2);
+  const rim=ctx.createLinearGradient(x,y,x+w,y+h);
+  rim.addColorStop(0,'rgba(255,255,255,0.35)');rim.addColorStop(1,'rgba(255,255,255,0.05)');
+  ctx.strokeStyle=rim;ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,0.96)';
+  ctx.font=`600 ${h*0.42}px system-ui,sans-serif`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(label,x+w/2,y+h/2);
+}
+
+function draw(ctx,W,H,t){
+  ctx.clearRect(0,0,W,H);
+
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#02070e');sky.addColorStop(0.35,'#030f1e');
+  sky.addColorStop(0.65,'#050d1a');sky.addColorStop(1,'#020810');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+  const a1=ctx.createRadialGradient(W*0.32,H*0.22,0,W*0.32,H*0.22,W*0.5);
+  a1.addColorStop(0,`rgba(15,50,145,${0.14+Math.sin(t*0.018)*0.04})`);
+  a1.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=a1;ctx.fillRect(0,0,W,H);
+
+  const a2=ctx.createRadialGradient(W*0.72,H*0.3,0,W*0.72,H*0.3,W*0.38);
+  a2.addColorStop(0,`rgba(0,70,175,${0.08+Math.sin(t*0.022+1)*0.03})`);
+  a2.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=a2;ctx.fillRect(0,0,W,H);
+
+  stars.forEach(s=>{
+    const pulse=0.3+Math.sin(t*s.speed+s.phase)*0.45;
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H*0.7,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(180,215,255,${pulse*0.65})`;ctx.fill();
+  });
+
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=1;if(p.x>1)p.x=0;
+    if(p.y<0)p.y=1;if(p.y>1)p.y=0;
+    ctx.beginPath();ctx.arc(p.x*W,p.y*H,p.r*W,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${p.col},${p.op})`;ctx.fill();
+  });
+
+  const gr=H*0.58;
+  for(let i=0;i<8;i++){
+    ctx.beginPath();ctx.moveTo(0,gr+i*H*0.058);ctx.lineTo(W,gr+i*H*0.058);
+    ctx.strokeStyle=`rgba(25,65,155,${0.04+i*0.006})`;ctx.lineWidth=0.5;ctx.stroke();
+  }
+  for(let i=0;i<12;i++){
+    ctx.beginPath();ctx.moveTo(i*W/11,gr);ctx.lineTo(i*W/11,H);
+    ctx.strokeStyle='rgba(25,65,155,0.035)';ctx.lineWidth=0.5;ctx.stroke();
+  }
+
+  const float=Math.sin(t*0.038)*H*0.01;
+  const pinX=W/2, pinY=H*0.37+float;
+  const pinR=W*0.1;
+
+  const glowR=ctx.createRadialGradient(pinX,pinY,0,pinX,pinY,pinR*2.2);
+  glowR.addColorStop(0,`rgba(59,130,246,${0.16+Math.sin(t*0.038)*0.05})`);
+  glowR.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=glowR;ctx.fillRect(pinX-pinR*2.2,pinY-pinR*2.2,pinR*4.4,pinR*4.4);
+
+  ctx.save();
+  ctx.shadowColor=`rgba(59,130,246,${0.55+Math.sin(t*0.038)*0.1})`;
+  ctx.shadowBlur=pinR*0.7;
+
+  const body=ctx.createRadialGradient(pinX-pinR*0.3,pinY-pinR*0.5,pinR*0.05,pinX,pinY,pinR+pinR*0.3);
+  body.addColorStop(0,'#a8d4ff');body.addColorStop(0.2,'#60a5fa');
+  body.addColorStop(0.55,'#2563eb');body.addColorStop(1,'#1e3a8a');
+
+  ctx.beginPath();
+  ctx.moveTo(pinX,pinY+pinR+pinR*0.62);
+  ctx.bezierCurveTo(pinX-pinR*0.22,pinY+pinR+pinR*0.38,pinX-pinR-pinR*0.18,pinY+pinR*0.42,pinX-pinR-pinR*0.18,pinY-pinR*0.08);
+  ctx.arc(pinX,pinY-pinR*0.08,pinR+pinR*0.18,Math.PI,0,false);
+  ctx.bezierCurveTo(pinX+pinR+pinR*0.18,pinY+pinR*0.42,pinX+pinR*0.22,pinY+pinR+pinR*0.38,pinX,pinY+pinR+pinR*0.62);
+  ctx.fillStyle=body;ctx.fill();
+
+  const shine=ctx.createRadialGradient(pinX-pinR*0.38,pinY-pinR*0.6,pinR*0.03,pinX-pinR*0.2,pinY-pinR*0.3,pinR);
+  shine.addColorStop(0,'rgba(255,255,255,0.65)');
+  shine.addColorStop(0.32,'rgba(255,255,255,0.18)');
+  shine.addColorStop(1,'rgba(255,255,255,0.0)');
+  ctx.beginPath();
+  ctx.moveTo(pinX,pinY+pinR+pinR*0.62);
+  ctx.bezierCurveTo(pinX-pinR*0.22,pinY+pinR+pinR*0.38,pinX-pinR-pinR*0.18,pinY+pinR*0.42,pinX-pinR-pinR*0.18,pinY-pinR*0.08);
+  ctx.arc(pinX,pinY-pinR*0.08,pinR+pinR*0.18,Math.PI,0,false);
+  ctx.bezierCurveTo(pinX+pinR+pinR*0.18,pinY+pinR*0.42,pinX+pinR*0.22,pinY+pinR+pinR*0.38,pinX,pinY+pinR+pinR*0.62);
+  ctx.fillStyle=shine;ctx.fill();
+
+  const rim=ctx.createLinearGradient(pinX-pinR,pinY-pinR,pinX+pinR,pinY+pinR);
+  rim.addColorStop(0,'rgba(255,255,255,0.3)');rim.addColorStop(1,'rgba(0,20,100,0.35)');
+  ctx.beginPath();ctx.arc(pinX,pinY-pinR*0.08,pinR+pinR*0.18,0,Math.PI*2);
+  ctx.strokeStyle=rim;ctx.lineWidth=pinR*0.04;ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,30,0.9)';ctx.shadowBlur=pinR*0.22;ctx.shadowOffsetY=pinR*0.06;
+  const hole=ctx.createRadialGradient(pinX-pinR*0.14,pinY-pinR*0.3,pinR*0.02,pinX,pinY-pinR*0.08,pinR*0.42);
+  hole.addColorStop(0,'#d8eeff');hole.addColorStop(0.28,'#3b6fd4');hole.addColorStop(1,'#040d22');
+  ctx.beginPath();ctx.arc(pinX,pinY-pinR*0.08,pinR*0.42,0,Math.PI*2);
+  ctx.fillStyle=hole;ctx.fill();
+  ctx.beginPath();ctx.arc(pinX-pinR*0.18,pinY-pinR*0.3,pinR*0.14,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.fill();
+  ctx.restore();
+
+  const sdw=ctx.createRadialGradient(W/2,H*0.52,0,W/2,H*0.52,pinR*1.1);
+  sdw.addColorStop(0,`rgba(59,130,246,${0.22+Math.sin(t*0.038)*0.07})`);
+  sdw.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath();ctx.ellipse(W/2,H*0.52,pinR*0.7,pinR*0.22,0,0,Math.PI*2);
+  ctx.fillStyle=sdw;ctx.fill();
+
+  const cardH=H*0.18, cardY=H*0.57;
+  glassCard(ctx,W/2-W*0.32,cardY,W*0.64,cardH,W*0.028);
+
+  ctx.save();
+  ctx.font=`700 ${W*0.09}px system-ui,sans-serif`;
+  ctx.fillStyle='rgba(255,255,255,0.97)';
+  ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.shadowColor='rgba(59,130,246,0.4)';ctx.shadowBlur=W*0.025;
+  ctx.fillText('PinRoam',W/2,cardY+cardH*0.1);
+  ctx.restore();
+
+  ctx.save();
+  ctx.font=`400 ${W*0.022}px system-ui,sans-serif`;
+  ctx.fillStyle='rgba(90,140,220,0.75)';
+  ctx.textAlign='center';
+  ctx.fillText('EXPLORE  ·  GUESS  ·  DISCOVER',W/2,cardY+cardH*0.68);
+  ctx.restore();
+
+  const bW=W*0.22,bH=H*0.058,bX=W/2-bW/2,bY=H*0.8;
+  glassBtn(ctx,bX,bY,bW,bH,'Play',t);
+
+  const dotR=W*0.007, dotY=H*0.91, dotGap=W*0.022;
+  [-2,-1,0,1,2].forEach((i,idx)=>{
+    ctx.beginPath();ctx.arc(W/2+i*dotGap,dotY,dotR,0,Math.PI*2);
+    ctx.fillStyle=idx===2?'rgba(99,160,255,0.9)':'rgba(60,80,120,0.35)';ctx.fill();
+  });
+}
+
+const canvases=[
+  {id:'mobile',W:390,H:844},
+  {id:'desktop',W:1280,H:720}
+];
+
+let t=0;
+function loop(){
+  canvases.forEach(({id,W,H})=>{
+    draw(document.getElementById(id).getContext('2d'),W,H,t);
+  });
+  t++;requestAnimationFrame(loop);
+}
+loop();
+
+function exportPNG(id,W,H,filename){
+  const c=document.createElement('canvas');
+  c.width=W;c.height=H;
+  draw(c.getContext('2d'),W,H,0);
+  const a=document.createElement('a');
+  a.href=c.toDataURL('image/png');
+  a.download=filename;a.click();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "geoquest",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "cap:sync":    "npx cap sync android",
+    "cap:open":    "npx cap open android",
+    "cap:build":   "npx cap sync android && npx cap build android",
+    "electron":    "cd electron && npm install && npm start",
+    "electron:dev":"cd electron && npm install && npm run dev"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/splash-screen": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.0.0"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+electron/node_modules/
+electron/dist/
+android/build/
+android/app/build/
+android/.gradle/
+*.log
+*.tmp
+gen_icons.py

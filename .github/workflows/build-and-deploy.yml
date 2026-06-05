@@ -1,0 +1,97 @@
+name: Build & Deploy PinRoam
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ── Deploy PWA to Cloudflare Pages ──────────────────────────────
+  deploy-pwa:
+    name: Deploy PWA → CF Pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: pages deploy www --project-name=pinroam --commit-dirty=true
+
+  # ── Build Electron Windows installer ────────────────────────────
+  build-electron-win:
+    name: Build Electron (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install & Build
+        working-directory: electron
+        run: |
+          npm install
+          npx electron-builder --win
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinroam-windows
+          path: electron/dist/*.exe
+
+  # ── Build Android APK ───────────────────────────────────────────
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Install dependencies
+        run: npm install
+      - name: Sync Capacitor
+        run: npx cap sync android
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Sign APK (debug key for now)
+        working-directory: android
+        run: |
+          UNSIGNED=app/build/outputs/apk/release/app-release-unsigned.apk
+          SIGNED=app/build/outputs/apk/release/PinRoam-1.0.0.apk
+          if [ -f "$UNSIGNED" ]; then
+            keytool -genkey -v -keystore debug.jks -alias debug -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=PinRoam, OU=Dev, O=PinRoam, L=UA, ST=UA, C=UA"
+            jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+              -keystore debug.jks -storepass android -keypass android \
+              -signedjar "$SIGNED" "$UNSIGNED" debug
+          else
+            cp app/build/outputs/apk/release/app-release.apk "$SIGNED" 2>/dev/null || true
+          fi
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinroam-android
+          path: android/app/build/outputs/apk/release/PinRoam-*.apk
+
+  # ── Deploy Worker ───────────────────────────────────────────────
+  deploy-worker:
+    name: Deploy CF Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: cf-worker

@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d0d18">
+<link rel="manifest" href="manifest.json">
+<title>PinRoam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<script>
+// Load Noto Color Emoji on non-Apple platforms so flag emojis render correctly
+if (!/Mac|iPhone|iPad|iPod/.test(navigator.platform) && !/Mac OS X/.test(navigator.userAgent)) {
+  document.documentElement.classList.add('noto-emoji');
+  const p1 = document.createElement('link'); p1.rel = 'preconnect'; p1.href = 'https://fonts.googleapis.com';
+  const p2 = document.createElement('link'); p2.rel = 'preconnect'; p2.href = 'https://fonts.gstatic.com'; p2.crossOrigin = '';
+  const lk = document.createElement('link'); lk.rel = 'stylesheet';
+  lk.href = 'https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap';
+  document.head.append(p1, p2, lk);
+}
+</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+/* ══════════════════════════ RESET + VARS */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+:root{
+  --bg:       #0c0c18;
+  --surface:  #12121e;
+  --card:     #1a1a2c;
+  --lift:     #222236;
+  --border:   rgba(255,255,255,.08);
+  --border-hi:rgba(255,255,255,.16);
+  --purple:   #7950e5;
+  --purplehi: #9b74f5;
+  --purplelo: rgba(121,80,229,.14);
+  --yellow:   #fecd19;
+  --yellowlo: rgba(254,205,25,.12);
+  --green:    #4cbb6a;
+  --greenhi:  #6dd88a;
+  --red:      #e94560;
+  --redhi:    #f06070;
+  --text:     #ffffff;
+  --text2:    #b0b0cc;
+  --muted:    #5a5a7a;
+  --fb:       'DM Sans', sans-serif;
+  --fh:       'Nunito', sans-serif;
+}
+
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--fb)}
+
+/* ambient purple glow on bg */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 50% at 50% -10%, rgba(121,80,229,.12) 0%, transparent 70%);
+}
+
+/* ══════════════════════════ SCREENS */
+.screen{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;
+  opacity:0;pointer-events:none;transition:opacity .3s ease}
+.screen.active{opacity:1;pointer-events:auto}
+
+/* ══════════════════════════ START SCREEN */
+#start{background:var(--bg);overflow-y:auto;justify-content:flex-start;z-index:200}
+.start-wrap{width:100%;max-width:680px;padding:28px 20px 60px;display:flex;flex-direction:column;align-items:center;position:relative}
+
+/* Language picker dropdown */
+.lang-picker{position:absolute;top:18px;right:18px;z-index:50}
+.lang-trigger{
+  display:flex;align-items:center;gap:7px;
+  background:var(--card);border:1.5px solid var(--border);border-radius:8px;
+  padding:7px 12px;cursor:pointer;transition:all .18s;
+  font-family:var(--fb);font-size:13px;color:var(--text2);
+}
+.lang-trigger:hover{border-color:var(--border-hi);color:var(--text)}
+.lang-trigger .lt-flag{font-size:16px;line-height:1}
+.lang-trigger .lt-name{font-weight:600}
+.lang-trigger .lt-arrow{font-size:10px;color:var(--muted);transition:transform .18s}
+.lang-picker.open .lt-arrow{transform:rotate(180deg)}
+.lang-drop{
+  position:absolute;top:calc(100% + 6px);right:0;
+  background:var(--card);border:1.5px solid var(--border-hi);border-radius:10px;
+  min-width:180px;padding:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  display:none;
+}
+.lang-picker.open .lang-drop{display:block;animation:dropIn .15s ease}
+@keyframes dropIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.lang-search-inp{
+  width:100%;background:var(--lift);border:1px solid var(--border);border-radius:6px;
+  padding:7px 10px;font-size:13px;color:var(--text);outline:none;
+  font-family:var(--fb);margin-bottom:6px;
+}
+.lang-search-inp::placeholder{color:var(--muted)}
+.lang-search-inp:focus{border-color:var(--purple)}
+.lang-opt{
+  display:flex;align-items:center;gap:9px;width:100%;
+  background:none;border:none;border-radius:6px;
+  padding:8px 10px;cursor:pointer;transition:background .15s;
+  font-family:var(--fb);font-size:13px;color:var(--text2);text-align:left;
+}
+.lang-opt:hover{background:var(--lift);color:var(--text)}
+.lang-opt.active{background:var(--purplelo);color:var(--purplehi)}
+.lang-opt .lo-flag{font-size:16px;line-height:1}
+.lang-opt.hidden{display:none}
+
+/* Hero */
+.s-logo{font-size:52px;margin-bottom:6px;filter:drop-shadow(0 0 18px rgba(121,80,229,.6));line-height:1}
+.s-title{font-family:var(--fh);font-size:clamp(38px,9vw,64px);font-weight:900;
+  letter-spacing:-1px;line-height:1;margin-bottom:6px;
+  background:linear-gradient(160deg,#fff 30%,var(--purplehi) 70%,var(--yellow) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:heroIn .7s cubic-bezier(.16,1,.3,1) both}
+@keyframes heroIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.s-sub{color:var(--muted);font-size:15px;margin-bottom:28px;animation:fadeUp .6s .15s both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Section headers */
+.sec-head{width:100%;display:flex;align-items:center;gap:10px;margin:20px 0 12px}
+.sec-head span{font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:var(--text2);white-space:nowrap}
+.sec-head::before,.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Difficulty cards */
+.diff-grid{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.diff-card{
+  background:var(--card);border:1.5px solid var(--border);border-radius:10px;
+  padding:14px 8px;cursor:pointer;transition:all .18s;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.diff-card:hover{border-color:var(--border-hi);background:var(--lift)}
+.diff-card.sel{border-color:var(--purple);background:var(--purplelo)}
+.diff-em{font-size:22px;line-height:1}
+.diff-nm{font-family:var(--fh);font-size:12px;font-weight:700;color:var(--text2)}
+.diff-nfo{font-size:10px;color:var(--muted)}
+.diff-card.sel .diff-nm{color:var(--purplehi)}
+
+/* Rounds pills */
+.rounds-row{display:flex;gap:8px;flex-wrap:wrap}
+.pill{
+  font-family:var(--fh);font-size:15px;font-weight:800;
+  background:var(--card);color:var(--muted);
+  border:1.5px solid var(--border);border-radius:8px;
+  padding:8px 20px;cursor:pointer;transition:all .18s;min-width:52px;text-align:center
+}
+.pill:hover{border-color:var(--border-hi);color:var(--text)}
+.pill.sel{background:var(--purplelo);border-color:var(--purple);color:var(--purplehi)}
+
+/* Region chips */
+.region-grid{display:flex;flex-wrap:wrap;gap:6px}
+.region-chip{
+  background:var(--card);color:var(--text2);
+  border:1.5px solid var(--border);border-radius:20px;
+  padding:6px 13px;font-size:13px;font-weight:500;cursor:pointer;transition:all .18s
+}
+.region-chip:hover{border-color:var(--border-hi);color:var(--text)}
+.region-chip.sel{background:var(--purplelo);border-color:var(--purple);color:var(--purplehi)}
+
+/* Play button */
+#play-btn{
+  margin-top:28px;padding:15px 60px;
+  font-family:var(--fh);font-size:15px;font-weight:800;letter-spacing:1px;
+  background:var(--yellow);color:#0c0c18;border:none;border-radius:10px;
+  cursor:pointer;transition:all .2s;
+  box-shadow:0 4px 24px rgba(254,205,25,.25);
+  animation:fadeUp .6s .3s both
+}
+#play-btn:hover{background:#ffdb4a;box-shadow:0 6px 32px rgba(254,205,25,.35);transform:translateY(-1px)}
+#play-btn:active{transform:scale(.97)}
+
+/* ══════════════════════════ GAME */
+#game{z-index:1}
+#sv{position:fixed;inset:0;width:100%;height:100%;border:none;z-index:0}
+
+/* Masks — soft gradients so they're invisible to the player */
+#sv-mask-bl{position:fixed;bottom:0;left:0;width:220px;height:110px;z-index:5;pointer-events:none;
+  background:radial-gradient(ellipse at 0% 100%, var(--bg) 38%, transparent 72%)}
+#sv-mask-br{position:fixed;bottom:0;right:0;width:180px;height:40px;z-index:5;pointer-events:none;
+  background:linear-gradient(to left, var(--bg) 50%, transparent)}
+#sv-mask-top{position:fixed;top:0;left:0;right:0;height:46px;background:var(--bg);z-index:5;pointer-events:none}
+
+/* ══════════════════════════ TIME SLIDER */
+.time-picker{width:100%;padding:4px 0 0}
+.time-val{font-family:var(--fh);font-size:30px;font-weight:900;color:var(--purplehi);
+  text-align:center;margin-bottom:16px;letter-spacing:-0.5px;min-height:38px}
+.slider-wrap{position:relative;padding:8px 0}
+/* Both sliders share the same style */
+input[type=range]#time-slider,
+input[type=range]#rounds-slider{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:4px;border-radius:4px;outline:none;cursor:pointer;
+  background:linear-gradient(to right,var(--purple) var(--fill,20%),var(--lift) var(--fill,20%));
+}
+input[type=range]#time-slider::-webkit-slider-thumb,
+input[type=range]#rounds-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:22px;height:22px;border-radius:50%;
+  background:var(--purple);border:3px solid #fff;cursor:pointer;
+  box-shadow:0 0 14px rgba(121,80,229,.55),0 2px 6px rgba(0,0,0,.4);
+  transition:transform .15s,box-shadow .15s;
+}
+input[type=range]#time-slider::-webkit-slider-thumb:hover,
+input[type=range]#rounds-slider::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0 0 20px rgba(121,80,229,.7),0 2px 8px rgba(0,0,0,.4)}
+input[type=range]#time-slider::-moz-range-thumb,
+input[type=range]#rounds-slider::-moz-range-thumb{
+  width:22px;height:22px;border-radius:50%;
+  background:var(--purple);border:3px solid #fff;cursor:pointer;
+  box-shadow:0 0 14px rgba(121,80,229,.55);
+}
+/* Noto Color Emoji for flag rendering on Windows/Linux */
+.noto-emoji .lt-flag,.noto-emoji .lo-flag,
+.noto-emoji .region-chip,.noto-emoji .diff-em{
+  font-family:'Noto Color Emoji',sans-serif;
+}
+.time-ticks{display:flex;justify-content:space-between;margin-top:8px}
+.time-ticks span{font-family:var(--fh);font-size:10px;font-weight:700;color:var(--muted);
+  cursor:pointer;transition:color .15s;user-select:none}
+.time-ticks span:hover{color:var(--text2)}
+.time-ticks span.tick-active{color:var(--purplehi)}
+
+/* Stats button on start screen */
+.start-stats-btn{
+  position:absolute;top:18px;left:18px;
+  background:var(--card);border:1.5px solid var(--border);border-radius:8px;
+  padding:7px 12px;cursor:pointer;transition:all .18s;
+  font-family:var(--fh);font-size:12px;font-weight:700;color:var(--muted);
+  display:flex;align-items:center;gap:6px;
+}
+.start-stats-btn:hover{border-color:var(--border-hi);color:var(--text2)}
+
+/* Stats screen */
+#stats{background:var(--bg);overflow-y:auto;justify-content:flex-start;z-index:180}
+.stats-wrap{width:100%;max-width:620px;padding:32px 20px 56px;display:flex;flex-direction:column;align-items:center}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;width:100%;margin-bottom:24px}
+.stat-card{background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.stat-val{font-family:var(--fh);font-size:30px;font-weight:900;color:var(--yellow);line-height:1}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.5px}
+.hist-row{display:flex;justify-content:space-between;align-items:center;
+  padding:9px 14px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2)}
+.hist-row:last-child{border-bottom:none}
+.hist-score{font-family:var(--fh);font-weight:800;color:var(--yellow)}
+.hist-date{font-size:11px;color:var(--muted)}
+.stats-table{width:100%;background:var(--card);border-radius:10px;overflow:hidden;margin-bottom:20px}
+
+/* Country input for Novice */
+#country-input-wrap{
+  position:fixed;bottom:20px;left:20px;z-index:20;
+  width:260px;display:none;flex-direction:column;gap:6px;
+}
+#country-input-wrap.visible{display:flex}
+.ci-input{
+  background:rgba(12,12,24,.9);backdrop-filter:blur(10px);
+  border:1.5px solid var(--border-hi);border-radius:8px;
+  padding:10px 14px;font-family:var(--fb);font-size:13px;color:var(--text);
+  outline:none;width:100%;
+}
+.ci-input:focus{border-color:var(--purple)}
+.ci-input::placeholder{color:var(--muted)}
+.ci-results{
+  background:rgba(12,12,24,.95);border:1.5px solid var(--border);border-radius:8px;
+  overflow:hidden;max-height:200px;overflow-y:auto;
+}
+.ci-item{
+  padding:9px 14px;font-size:13px;cursor:pointer;
+  color:var(--text2);transition:background .12s;display:block;width:100%;
+  background:none;border:none;text-align:left;font-family:var(--fb);
+}
+.ci-item:hover,.ci-item.focused{background:var(--lift);color:var(--text)}
+
+/* No-move overlay (Master) */
+#no-move-overlay{
+  position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:transparent;
+}
+#no-move-overlay.active{z-index:3;pointer-events:all;cursor:not-allowed}
+.no-move-badge{
+  position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:21;
+  background:rgba(233,69,96,.18);border:1px solid rgba(233,69,96,.4);
+  border-radius:20px;padding:5px 16px;
+  font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:1px;
+  color:rgba(233,69,96,.9);pointer-events:none;display:none;
+}
+#no-move-badge.visible{display:block}
+
+/* ══════════════════════════ END GAME BUTTON */
+#end-game-btn{
+  position:fixed;bottom:20px;left:20px;z-index:20;
+  font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:1px;
+  background:rgba(12,12,24,.8);backdrop-filter:blur(8px);
+  border:1px solid rgba(233,69,96,.3);border-radius:20px;
+  color:rgba(233,69,96,.7);padding:7px 14px;cursor:pointer;
+  transition:all .2s;
+}
+#end-game-btn:hover{border-color:var(--red);color:var(--red);background:rgba(233,69,96,.1)}
+
+/* Timer */
+#timer-track{position:fixed;top:0;left:0;width:100%;height:3px;background:rgba(255,255,255,.06);z-index:25}
+#timer-bar{height:100%;width:100%;transition:width 1s linear,background .5s;background:var(--purple);transform-origin:left}
+#timer-bar.pulse{animation:blink .65s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* HUD */
+#topbar{position:fixed;top:3px;left:0;right:0;z-index:20;padding:8px 14px;
+  display:flex;align-items:center;justify-content:space-between;pointer-events:none}
+.hud-pill{
+  pointer-events:auto;
+  font-family:var(--fh);font-size:12px;font-weight:700;letter-spacing:.5px;
+  background:rgba(12,12,24,.85);backdrop-filter:blur(10px);
+  border:1px solid var(--border);border-radius:20px;
+  padding:5px 14px;white-space:nowrap;
+}
+#round-badge{color:var(--text2)}
+#timer-num{color:var(--muted);font-variant-numeric:tabular-nums;transition:color .3s}
+#score-disp{color:var(--text)}
+#score-disp em{font-style:normal;color:var(--yellow)}
+
+/* Map panel */
+#map-wrap{position:fixed;bottom:20px;right:20px;z-index:20;
+  display:flex;flex-direction:column;gap:6px;width:300px;transition:width .2s ease}
+#map-wrap:hover{width:500px}
+#map-panel{width:100%;height:300px;border:2px solid var(--border-hi);border-radius:12px;
+  overflow:hidden;transition:height .2s ease;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+#map-wrap:hover #map-panel{height:500px}
+#gmap{width:100%;height:100%}
+.leaflet-container{background:#12121e !important}
+
+#confirm-btn{
+  width:100%;font-family:var(--fh);font-size:13px;font-weight:800;letter-spacing:1px;
+  background:var(--lift);color:var(--muted);
+  border:none;border-radius:8px;padding:13px;cursor:not-allowed;
+  transition:all .2s;
+}
+#confirm-btn.ready{background:var(--red);color:#fff;cursor:pointer;box-shadow:0 4px 20px rgba(233,69,96,.3)}
+#confirm-btn.ready:hover{background:var(--redhi);box-shadow:0 6px 28px rgba(233,69,96,.4)}
+#confirm-btn.ready:active{transform:scale(.98)}
+
+/* ══════════════════════════ LOADING */
+#loading{position:fixed;inset:0;z-index:100;background:rgba(12,12,24,.96);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  opacity:1;transition:opacity .3s}
+#loading.off{opacity:0;pointer-events:none}
+.spin-ring{width:44px;height:44px}
+.spin-ring svg{animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-ring circle.trk{fill:none;stroke:rgba(255,255,255,.07);stroke-width:2}
+.spin-ring circle.arc{fill:none;stroke:var(--purple);stroke-width:2;stroke-dasharray:60 100;stroke-linecap:round}
+#load-msg{font-family:var(--fh);font-size:12px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:var(--muted)}
+
+/* ══════════════════════════ RESULT */
+#result-ov{position:fixed;inset:0;z-index:50;background:rgba(12,12,24,.92);
+  display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .3s}
+#result-ov.on{opacity:1;pointer-events:auto}
+#rmap{flex:1;min-height:0}
+#rinfo{background:var(--surface);padding:14px 22px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+  border-top:1px solid var(--border)}
+#rloc{font-family:var(--fh);font-size:17px;font-weight:800}
+#rdiff-info{font-size:12px;color:var(--muted);margin-top:3px}
+#rpts{font-family:var(--fh);font-size:32px;font-weight:900;color:var(--yellow);text-align:right;line-height:1}
+#rtotal{font-size:11px;color:var(--muted);text-align:right;margin-top:4px}
+#ract{background:var(--surface);padding:12px 22px 18px;display:flex;justify-content:center}
+
+/* ══════════════════════════ FINAL */
+#final{background:var(--bg);overflow-y:auto;justify-content:flex-start;z-index:80}
+.final-inner{width:100%;max-width:660px;padding:36px 20px 56px;display:flex;flex-direction:column;align-items:center}
+.flabel{font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:3px;
+  text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+#fnum{font-family:var(--fh);font-size:clamp(56px,14vw,88px);font-weight:900;
+  color:var(--yellow);line-height:1;letter-spacing:-1px}
+#fdenom{font-size:18px;color:var(--muted);margin-bottom:18px}
+#frating{font-family:var(--fh);font-size:14px;font-weight:800;letter-spacing:.5px;
+  color:var(--purplehi);background:var(--purplelo);
+  border:1.5px solid rgba(121,80,229,.3);border-radius:20px;
+  padding:7px 22px;margin-bottom:6px}
+#fcfg{font-size:12px;color:var(--muted);margin-bottom:24px}
+#ftable{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:28px}
+#ftable th{font-family:var(--fh);font-size:10px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);padding:8px 14px;text-align:left;
+  background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+#ftable th:last-child{text-align:right}
+#ftable td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2)}
+#ftable td:last-child{text-align:right;font-family:var(--fh);color:var(--yellow);font-weight:800;font-size:13px}
+#ftable tr:last-child td{border-bottom:none}
+.final-btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
+/* ══════════════════════════ SHARED BUTTONS */
+.gbtn{font-family:var(--fh);font-size:13px;font-weight:800;letter-spacing:.5px;
+  background:var(--purple);color:#fff;border:none;border-radius:8px;
+  padding:13px 36px;cursor:pointer;transition:all .18s;
+  box-shadow:0 4px 18px rgba(121,80,229,.25)}
+.gbtn:hover{background:var(--purplehi);box-shadow:0 6px 24px rgba(121,80,229,.35)}
+.gbtn:active{transform:scale(.97)}
+.gbtn.ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);box-shadow:none}
+.gbtn.ghost:hover{border-color:var(--border-hi);color:var(--text);background:var(--lift)}
+
+/* Splash screen */
+#splash-overlay{
+  position:fixed;inset:0;z-index:9999;background:#030c18;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .6s ease;
+}
+#splash-overlay.fade-out{opacity:0;pointer-events:none}
+#splash-canvas{max-width:100%;max-height:100%}
+
+/* Negative score indicator */
+#score-disp.score-neg em{color:var(--red)!important;animation:scoreNegPulse .4s ease}
+@keyframes scoreNegPulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Mute buttons (HUD + start screen) */
+.audio-toggle{
+  background:none;border:none;cursor:pointer;
+  font-size:15px;padding:3px 6px;border-radius:4px;
+  transition:opacity .2s,transform .1s;line-height:1;
+}
+.audio-toggle.muted{opacity:.28;filter:grayscale(1)}
+.audio-toggle:hover{transform:scale(1.15)}
+#audio-ctrl{display:flex;align-items:center;gap:0;padding:2px 6px !important}
+.start-audio-row{display:flex;align-items:center;gap:2px;margin-top:14px;opacity:.55;transition:opacity .2s}
+.start-audio-row:hover{opacity:1}
+.start-audio-btn{background:none;border:none;cursor:pointer;font-size:20px;padding:5px 9px;border-radius:6px;transition:opacity .2s,transform .1s;line-height:1}
+.start-audio-btn.muted{opacity:.22;filter:grayscale(1)}
+.start-audio-btn:hover{transform:scale(1.18)}
+.start-audio-sep{color:var(--muted);font-size:13px;padding:0 2px}
+
+/* ══════════════════════════ MOBILE */
+@media(max-width:600px){
+  .diff-grid{grid-template-columns:repeat(2,1fr)}
+  #map-wrap{width:180px;bottom:14px;right:12px}
+  #map-wrap:hover{width:290px}
+  #map-panel{height:180px}
+  #map-wrap:hover #map-panel{height:290px}
+  #fnum{font-size:52px}
+  #lang-strip{position:relative;top:auto;right:auto;margin-bottom:12px}
+  .start-wrap{padding-top:18px}
+}
+</style>
+</head>
+<body>
+
+<!-- SPLASH OVERLAY -->
+<div id="splash-overlay">
+  <canvas id="splash-canvas" width="390" height="844" style="height:100vh;width:auto"></canvas>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spin-ring">
+    <svg viewBox="0 0 44 44"><circle class="trk" cx="22" cy="22" r="18"/><circle class="arc" cx="22" cy="22" r="18" transform="rotate(-90 22 22)"/></svg>
+  </div>
+  <p id="load-msg" data-i18n="loading">Finding a location…</p>
+</div>
+
+<!-- START SCREEN -->
+<div id="start" class="screen">
+  <div class="start-wrap">
+
+    <!-- Stats button -->
+    <button class="start-stats-btn" id="stats-btn">📊 <span data-i18n="stats_btn">Stats</span></button>
+
+    <!-- Language picker dropdown -->
+    <div class="lang-picker" id="lang-picker">
+      <button class="lang-trigger" id="lang-trigger" type="button">
+        <span class="lt-flag" id="lt-flag">🇬🇧</span>
+        <span class="lt-name" id="lt-name">English</span>
+        <span class="lt-arrow">▾</span>
+      </button>
+      <div class="lang-drop" id="lang-drop">
+        <input class="lang-search-inp" id="lang-search" type="text" placeholder="Search…" autocomplete="off">
+        <div id="lang-opts">
+          <button class="lang-opt active" data-lang="en" data-flag="🇬🇧" data-label="English"><span class="lo-flag">🇬🇧</span> English</button>
+          <button class="lang-opt" data-lang="uk" data-flag="🇺🇦" data-label="Українська"><span class="lo-flag">🇺🇦</span> Українська</button>
+          <button class="lang-opt" data-lang="es" data-flag="🇪🇸" data-label="Español"><span class="lo-flag">🇪🇸</span> Español</button>
+          <button class="lang-opt" data-lang="fr" data-flag="🇫🇷" data-label="Français"><span class="lo-flag">🇫🇷</span> Français</button>
+          <button class="lang-opt" data-lang="pt" data-flag="🇵🇹" data-label="Português"><span class="lo-flag">🇵🇹</span> Português</button>
+          <button class="lang-opt" data-lang="de" data-flag="🇩🇪" data-label="Deutsch"><span class="lo-flag">🇩🇪</span> Deutsch</button>
+          <button class="lang-opt" data-lang="it" data-flag="🇮🇹" data-label="Italiano"><span class="lo-flag">🇮🇹</span> Italiano</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="s-logo">🌍</div>
+    <h1 class="s-title">PinRoam</h1>
+    <p class="s-sub" data-i18n="subtitle">Explore the world, one guess at a time</p>
+
+    <!-- Difficulty -->
+    <div class="sec-head"><span data-i18n="diff_label">Difficulty</span></div>
+    <div class="diff-grid">
+      <button class="diff-card" data-diff="novice">
+        <span class="diff-em">🌱</span>
+        <span class="diff-nm" data-i18n="d_novice">Novice</span>
+        <span class="diff-nfo" data-i18n="d_novice_d">Lenient scoring</span>
+      </button>
+      <button class="diff-card sel" data-diff="medium">
+        <span class="diff-em">⚡</span>
+        <span class="diff-nm" data-i18n="d_medium">Medium</span>
+        <span class="diff-nfo" data-i18n="d_medium_d">Standard scoring</span>
+      </button>
+      <button class="diff-card" data-diff="pro">
+        <span class="diff-em">🎯</span>
+        <span class="diff-nm" data-i18n="d_pro">Pro</span>
+        <span class="diff-nfo" data-i18n="d_pro_d">Strict scoring</span>
+      </button>
+      <button class="diff-card" data-diff="master">
+        <span class="diff-em">👑</span>
+        <span class="diff-nm" data-i18n="d_master">Master</span>
+        <span class="diff-nfo" data-i18n="d_master_d">Brutal scoring</span>
+      </button>
+    </div>
+
+    <!-- Rounds -->
+    <div class="sec-head"><span data-i18n="rounds_label">Rounds</span></div>
+    <div class="time-picker">
+      <div class="time-val" id="rounds-display">5</div>
+      <div class="slider-wrap">
+        <input type="range" id="rounds-slider" min="0" max="4" value="1" step="1">
+      </div>
+      <div class="time-ticks" id="rounds-ticks">
+        <span data-idx="0">3</span>
+        <span data-idx="1" class="tick-active">5</span>
+        <span data-idx="2">10</span>
+        <span data-idx="3">15</span>
+        <span data-idx="4">20</span>
+      </div>
+    </div>
+
+    <!-- Time per round -->
+    <div class="sec-head"><span data-i18n="time_label">Time per Round</span></div>
+    <div class="time-picker">
+      <div class="time-val" id="time-display">1 min</div>
+      <div class="slider-wrap">
+        <input type="range" id="time-slider" min="0" max="5" value="1" step="1">
+      </div>
+      <div class="time-ticks" id="time-ticks">
+        <span data-idx="0">30s</span>
+        <span data-idx="1" class="tick-active">1m</span>
+        <span data-idx="2">2m</span>
+        <span data-idx="3">5m</span>
+        <span data-idx="4">10m</span>
+        <span data-idx="5">∞</span>
+      </div>
+    </div>
+
+    <!-- Region -->
+    <div class="sec-head"><span data-i18n="region_label">Region</span></div>
+    <div class="region-grid" id="region-grid">
+      <button class="region-chip sel" data-region="world" data-i18n="r_world">🗺️ World</button>
+      <button class="region-chip" data-region="europe" data-i18n="r_europe">🇪🇺 Europe</button>
+      <button class="region-chip" data-region="asia" data-i18n="r_asia">🌏 Asia</button>
+      <button class="region-chip" data-region="americas" data-i18n="r_americas">🌎 Americas</button>
+      <button class="region-chip" data-region="africa" data-i18n="r_africa">🌍 Africa</button>
+      <button class="region-chip" data-region="oceania" data-i18n="r_oceania">🦘 Oceania</button>
+      <button class="region-chip" data-region="ua" data-i18n="r_ua">🇺🇦 Ukraine</button>
+      <button class="region-chip" data-region="us" data-i18n="r_us">🇺🇸 USA</button>
+      <button class="region-chip" data-region="jp" data-i18n="r_jp">🇯🇵 Japan</button>
+      <button class="region-chip" data-region="de" data-i18n="r_de">🇩🇪 Germany</button>
+      <button class="region-chip" data-region="fr" data-i18n="r_fr">🇫🇷 France</button>
+      <button class="region-chip" data-region="br" data-i18n="r_br">🇧🇷 Brazil</button>
+      <button class="region-chip" data-region="au" data-i18n="r_au">🇦🇺 Australia</button>
+      <button class="region-chip" data-region="gb" data-i18n="r_gb">🇬🇧 UK</button>
+      <button class="region-chip" data-region="in" data-i18n="r_in">🇮🇳 India</button>
+    </div>
+
+    <button id="play-btn" data-i18n="play_btn">Play</button>
+
+    <!-- Start screen audio controls -->
+    <div class="start-audio-row">
+      <button class="start-audio-btn" id="start-mute-sfx" title="Sound FX">🔊</button>
+      <span class="start-audio-sep">·</span>
+      <button class="start-audio-btn" id="start-mute-mus" title="Music">🎵</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATS SCREEN -->
+<div id="stats" class="screen">
+  <div class="stats-wrap">
+    <div class="flabel" data-i18n="stats_title">Statistics</div>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="st-games">0</div><div class="stat-lbl" data-i18n="st_games">Games</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-rounds">0</div><div class="stat-lbl" data-i18n="st_rounds">Rounds</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-avg">0%</div><div class="stat-lbl" data-i18n="st_avg">Avg Score</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-best">0</div><div class="stat-lbl" data-i18n="st_best">Best Game</div></div>
+    </div>
+    <div class="flabel" style="margin-bottom:10px" data-i18n="st_history">Recent Games</div>
+    <div class="stats-table" id="st-history"></div>
+    <div class="final-btns" style="margin-top:20px">
+      <button class="gbtn ghost" id="stats-back" data-i18n="settings_btn">Back</button>
+      <button class="gbtn ghost" id="stats-clear" style="color:var(--red);border-color:rgba(233,69,96,.3)" data-i18n="st_clear">Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen">
+  <iframe id="sv" src="about:blank" allowfullscreen></iframe>
+  <div id="no-move-overlay"></div>
+  <div id="no-move-badge" class="no-move-badge" data-i18n="no_move_badge">Static view — no navigation</div>
+  <div id="sv-mask-bl"></div>
+  <div id="sv-mask-br"></div>
+  <div id="sv-mask-top"></div>
+  <button id="end-game-btn" data-i18n="end_game">End Game</button>
+  <!-- Country input for Novice mode -->
+  <div id="country-input-wrap">
+    <input class="ci-input" id="ci-input" type="text" data-i18n-ph="ci_placeholder" placeholder="Type country name…" autocomplete="off">
+    <div class="ci-results" id="ci-results"></div>
+  </div>
+  <div id="timer-track"><div id="timer-bar"></div></div>
+  <div id="topbar">
+    <div class="hud-pill" id="round-badge">
+      <span data-i18n="round_lbl">Round</span> <span id="rnum">1</span>/<span id="rtotal-rounds">5</span>
+    </div>
+    <div class="hud-pill" id="timer-num">—</div>
+    <div class="hud-pill" id="score-disp"><em id="sval">0</em> pts</div>
+    <div class="hud-pill" id="audio-ctrl">
+      <button class="audio-toggle" id="mute-sfx-btn" title="Sound FX">🔊</button>
+      <button class="audio-toggle" id="mute-mus-btn" title="Music">🎵</button>
+    </div>
+  </div>
+  <div id="map-wrap">
+    <div id="map-panel"><div id="gmap"></div></div>
+    <button id="confirm-btn" disabled data-i18n="confirm_btn">Confirm Guess</button>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div id="result-ov">
+  <div id="rmap"></div>
+  <div id="rinfo">
+    <div>
+      <div id="rloc">—</div>
+      <div id="rdiff-info">—</div>
+    </div>
+    <div>
+      <div id="rpts">+0</div>
+      <div id="rtotal">—</div>
+    </div>
+  </div>
+  <div id="ract"><button id="next-btn" class="gbtn" data-i18n="next_round">Next Round</button></div>
+</div>
+
+<!-- FINAL -->
+<div id="final" class="screen">
+  <div class="final-inner">
+    <div class="flabel" data-i18n="final_label">Final Score</div>
+    <div id="fnum">0</div>
+    <div id="fdenom">/ 25000</div>
+    <div id="frating">—</div>
+    <div id="fcfg">—</div>
+    <table id="ftable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th data-i18n="col_loc">Location</th>
+          <th data-i18n="col_dist">Distance</th>
+          <th data-i18n="col_time">Time</th>
+          <th data-i18n="col_score">Score</th>
+        </tr>
+      </thead>
+      <tbody id="ftbody"></tbody>
+    </table>
+    <div class="final-btns">
+      <button class="gbtn" id="play-again" data-i18n="play_again">Play Again</button>
+      <button class="gbtn ghost" id="change-cfg" data-i18n="settings_btn">Settings</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════ TRANSLATIONS
+
+const TR = {
+  en:{
+    subtitle:'Explore the world, one guess at a time',
+    diff_label:'Difficulty', rounds_label:'Rounds', region_label:'Region',
+    time_label:'Time per Round',
+    d_novice:'Novice', d_novice_d:'Lenient scoring',
+    d_medium:'Medium', d_medium_d:'Standard scoring',
+    d_pro:'Pro', d_pro_d:'Strict scoring',
+    d_master:'Master', d_master_d:'Brutal scoring',
+    play_btn:'Play', confirm_btn:'Confirm Guess', round_lbl:'Round',
+    end_game:'End Game',
+    loading:'Finding a location…', fetching:'Loading…',
+    next_round:'Next Round', see_results:'See Results',
+    km_away:'km away', difficulty_lbl:'difficulty',
+    total_lbl:'Total', your_guess:'Your guess',
+    final_label:'Final Score', play_again:'Play Again', settings_btn:'Settings',
+    col_loc:'Location', col_dist:'Distance', col_time:'Time', col_score:'Score',
+    stats_btn:'Stats', stats_title:'Statistics', st_games:'Games Played',
+    st_rounds:'Total Rounds', st_avg:'Avg Score', st_best:'Best Game',
+    st_history:'Recent Games', st_clear:'Clear Stats',
+    no_move_badge:'Static view — no navigation',
+    ci_placeholder:'Type country name…',
+    r_world:'🗺️ World', r_europe:'🇪🇺 Europe', r_asia:'🌏 Asia',
+    r_americas:'🌎 Americas', r_africa:'🌍 Africa', r_oceania:'🦘 Oceania',
+    r_ua:'🇺🇦 Ukraine', r_us:'🇺🇸 USA', r_jp:'🇯🇵 Japan',
+    r_de:'🇩🇪 Germany', r_fr:'🇫🇷 France', r_br:'🇧🇷 Brazil',
+    r_au:'🇦🇺 Australia', r_gb:'🇬🇧 UK', r_in:'🇮🇳 India',
+    rating_lost:'Lost Traveler 🗺️', rating_tourist:'Tourist ✈️',
+    rating_explorer:'Explorer 🧭', rating_nav:'Navigator 🌐',
+    rating_carto:'Cartographer 📍', rating_geo:'GeoMaster 🌍',
+  },
+  uk:{
+    subtitle:'Досліджуй світ, одна здогадка за раз',
+    diff_label:'Складність', rounds_label:'Раунди', region_label:'Регіон',
+    time_label:'Час на раунд',
+    d_novice:'Новачок', d_novice_d:'М\'який залік',
+    d_medium:'Середній', d_medium_d:'Стандартний залік',
+    d_pro:'Про', d_pro_d:'Строгий залік',
+    d_master:'Майстер', d_master_d:'Брутальний залік',
+    play_btn:'Грати', confirm_btn:'Підтвердити', round_lbl:'Раунд',
+    end_game:'Завершити гру',
+    loading:'Шукаємо локацію…', fetching:'Завантаження…',
+    next_round:'Наступний раунд', see_results:'Результати',
+    km_away:'км від місця', difficulty_lbl:'рівень',
+    total_lbl:'Всього', your_guess:'Ваша здогадка',
+    final_label:'Фінальний рахунок', play_again:'Грати знову', settings_btn:'Налаштування',
+    col_loc:'Місце', col_dist:'Відстань', col_time:'Час', col_score:'Очки',
+    stats_btn:'Стат', stats_title:'Статистика', st_games:'Ігор зіграно',
+    st_rounds:'Раундів всього', st_avg:'Серед. рахунок', st_best:'Найкраща гра',
+    st_history:'Останні ігри', st_clear:'Очистити',
+    no_move_badge:'Статичний вид — навігація вимкнена',
+    ci_placeholder:'Введіть назву країни…',
+    r_world:'🗺️ Світ', r_europe:'🇪🇺 Європа', r_asia:'🌏 Азія',
+    r_americas:'🌎 Америки', r_africa:'🌍 Африка', r_oceania:'🦘 Океанія',
+    r_ua:'🇺🇦 Україна', r_us:'🇺🇸 США', r_jp:'🇯🇵 Японія',
+    r_de:'🇩🇪 Німеччина', r_fr:'🇫🇷 Франція', r_br:'🇧🇷 Бразилія',
+    r_au:'🇦🇺 Австралія', r_gb:'🇬🇧 Велика Британія', r_in:'🇮🇳 Індія',
+    rating_lost:'Загублений мандрівник 🗺️', rating_tourist:'Турист ✈️',
+    rating_explorer:'Дослідник 🧭', rating_nav:'Навігатор 🌐',
+    rating_carto:'Картограф 📍', rating_geo:'ГеоМайстер 🌍',
+  },
+  es:{
+    subtitle:'Explora el mundo, una suposición a la vez',
+    diff_label:'Dificultad', rounds_label:'Rondas', region_label:'Región',
+    time_label:'Tiempo por Ronda',
+    d_novice:'Principiante', d_novice_d:'Puntuación fácil',
+    d_medium:'Medio', d_medium_d:'Puntuación estándar',
+    d_pro:'Pro', d_pro_d:'Puntuación estricta',
+    d_master:'Maestro', d_master_d:'Puntuación brutal',
+    play_btn:'Jugar', confirm_btn:'Confirmar', round_lbl:'Ronda',
+    end_game:'Terminar Juego',
+    loading:'Buscando ubicación…', fetching:'Cargando…',
+    next_round:'Siguiente ronda', see_results:'Ver resultados',
+    km_away:'km de distancia', difficulty_lbl:'dificultad',
+    total_lbl:'Total', your_guess:'Tu elección',
+    final_label:'Puntuación final', play_again:'Jugar de nuevo', settings_btn:'Ajustes',
+    col_loc:'Ubicación', col_dist:'Distancia', col_time:'Tiempo', col_score:'Puntos',
+    stats_btn:'Est', stats_title:'Estadísticas', st_games:'Partidas',
+    st_rounds:'Rondas totales', st_avg:'Puntuación media', st_best:'Mejor partida',
+    st_history:'Últimas partidas', st_clear:'Borrar',
+    no_move_badge:'Vista estática — sin navegación',
+    ci_placeholder:'Escribe el nombre del país…',
+    r_world:'🗺️ Mundo', r_europe:'🇪🇺 Europa', r_asia:'🌏 Asia',
+    r_americas:'🌎 Américas', r_africa:'🌍 África', r_oceania:'🦘 Oceanía',
+    r_ua:'🇺🇦 Ucrania', r_us:'🇺🇸 EE.UU.', r_jp:'🇯🇵 Japón',
+    r_de:'🇩🇪 Alemania', r_fr:'🇫🇷 Francia', r_br:'🇧🇷 Brasil',
+    r_au:'🇦🇺 Australia', r_gb:'🇬🇧 Reino Unido', r_in:'🇮🇳 India',
+    rating_lost:'Viajero perdido 🗺️', rating_tourist:'Turista ✈️',
+    rating_explorer:'Explorador 🧭', rating_nav:'Navegador 🌐',
+    rating_carto:'Cartógrafo 📍', rating_geo:'GeoMaestro 🌍',
+  },
+  fr:{
+    subtitle:'Explorez le monde, une devinette à la fois',
+    diff_label:'Difficulté', rounds_label:'Manches', region_label:'Région',
+    time_label:'Temps par Manche',
+    d_novice:'Débutant', d_novice_d:'Score clément',
+    d_medium:'Moyen', d_medium_d:'Score standard',
+    d_pro:'Pro', d_pro_d:'Score strict',
+    d_master:'Maître', d_master_d:'Score brutal',
+    play_btn:'Jouer', confirm_btn:'Confirmer', round_lbl:'Manche',
+    end_game:'Terminer la partie',
+    loading:'Recherche d\'un lieu…', fetching:'Chargement…',
+    next_round:'Manche suivante', see_results:'Voir les résultats',
+    km_away:'km du lieu', difficulty_lbl:'difficulté',
+    total_lbl:'Total', your_guess:'Votre supposition',
+    final_label:'Score final', play_again:'Rejouer', settings_btn:'Paramètres',
+    col_loc:'Lieu', col_dist:'Distance', col_time:'Temps', col_score:'Score',
+    stats_btn:'Stats', stats_title:'Statistiques', st_games:'Parties jouées',
+    st_rounds:'Tours totaux', st_avg:'Score moyen', st_best:'Meilleure partie',
+    st_history:'Parties récentes', st_clear:'Effacer',
+    no_move_badge:'Vue statique — navigation désactivée',
+    ci_placeholder:'Tapez le nom du pays…',
+    r_world:'🗺️ Monde', r_europe:'🇪🇺 Europe', r_asia:'🌏 Asie',
+    r_americas:'🌎 Amériques', r_africa:'🌍 Afrique', r_oceania:'🦘 Océanie',
+    r_ua:'🇺🇦 Ukraine', r_us:'🇺🇸 États-Unis', r_jp:'🇯🇵 Japon',
+    r_de:'🇩🇪 Allemagne', r_fr:'🇫🇷 France', r_br:'🇧🇷 Brésil',
+    r_au:'🇦🇺 Australie', r_gb:'🇬🇧 Royaume-Uni', r_in:'🇮🇳 Inde',
+    rating_lost:'Voyageur perdu 🗺️', rating_tourist:'Touriste ✈️',
+    rating_explorer:'Explorateur 🧭', rating_nav:'Navigateur 🌐',
+    rating_carto:'Cartographe 📍', rating_geo:'GéoMaître 🌍',
+  },
+  pt:{
+    subtitle:'Explore o mundo, um palpite de cada vez',
+    diff_label:'Dificuldade', rounds_label:'Rodadas', region_label:'Região',
+    time_label:'Tempo por Rodada',
+    d_novice:'Novato', d_novice_d:'Pontuação fácil',
+    d_medium:'Médio', d_medium_d:'Pontuação padrão',
+    d_pro:'Pro', d_pro_d:'Pontuação estrita',
+    d_master:'Mestre', d_master_d:'Pontuação brutal',
+    play_btn:'Jogar', confirm_btn:'Confirmar', round_lbl:'Rodada',
+    end_game:'Encerrar Jogo',
+    loading:'Procurando localização…', fetching:'Carregando…',
+    next_round:'Próxima rodada', see_results:'Ver resultados',
+    km_away:'km de distância', difficulty_lbl:'dificuldade',
+    total_lbl:'Total', your_guess:'Seu palpite',
+    final_label:'Pontuação final', play_again:'Jogar novamente', settings_btn:'Configurações',
+    col_loc:'Local', col_dist:'Distância', col_time:'Tempo', col_score:'Pontos',
+    stats_btn:'Est', stats_title:'Estatísticas', st_games:'Jogos',
+    st_rounds:'Rodadas totais', st_avg:'Pontuação média', st_best:'Melhor jogo',
+    st_history:'Jogos recentes', st_clear:'Limpar',
+    no_move_badge:'Vista estática — sem navegação',
+    ci_placeholder:'Digite o nome do país…',
+    r_world:'🗺️ Mundo', r_europe:'🇪🇺 Europa', r_asia:'🌏 Ásia',
+    r_americas:'🌎 Américas', r_africa:'🌍 África', r_oceania:'🦘 Oceania',
+    r_ua:'🇺🇦 Ucrânia', r_us:'🇺🇸 EUA', r_jp:'🇯🇵 Japão',
+    r_de:'🇩🇪 Alemanha', r_fr:'🇫🇷 França', r_br:'🇧🇷 Brasil',
+    r_au:'🇦🇺 Austrália', r_gb:'🇬🇧 Reino Unido', r_in:'🇮🇳 Índia',
+    rating_lost:'Viajante perdido 🗺️', rating_tourist:'Turista ✈️',
+    rating_explorer:'Explorador 🧭', rating_nav:'Navegador 🌐',
+    rating_carto:'Cartógrafo 📍', rating_geo:'GeoMestre 🌍',
+  },
+  de:{
+    subtitle:'Erkunde die Welt, eine Schätzung nach der anderen',
+    diff_label:'Schwierigkeit', rounds_label:'Runden', region_label:'Region',
+    time_label:'Zeit pro Runde',
+    d_novice:'Anfänger', d_novice_d:'Sanfte Wertung',
+    d_medium:'Mittel', d_medium_d:'Standard Wertung',
+    d_pro:'Pro', d_pro_d:'Strenge Wertung',
+    d_master:'Meister', d_master_d:'Brutale Wertung',
+    play_btn:'Spielen', confirm_btn:'Bestätigen', round_lbl:'Runde',
+    end_game:'Spiel beenden',
+    loading:'Suche nach Ort…', fetching:'Laden…',
+    next_round:'Nächste Runde', see_results:'Ergebnisse',
+    km_away:'km entfernt', difficulty_lbl:'Schwierigkeit',
+    total_lbl:'Gesamt', your_guess:'Deine Schätzung',
+    final_label:'Endergebnis', play_again:'Nochmal spielen', settings_btn:'Einstellungen',
+    col_loc:'Ort', col_dist:'Entfernung', col_time:'Zeit', col_score:'Punkte',
+    stats_btn:'Stat', stats_title:'Statistiken', st_games:'Spiele',
+    st_rounds:'Runden gesamt', st_avg:'Ø Punkte', st_best:'Bestes Spiel',
+    st_history:'Letzte Spiele', st_clear:'Löschen',
+    no_move_badge:'Statische Ansicht — keine Navigation',
+    ci_placeholder:'Ländername eingeben…',
+    r_world:'🗺️ Welt', r_europe:'🇪🇺 Europa', r_asia:'🌏 Asien',
+    r_americas:'🌎 Amerika', r_africa:'🌍 Afrika', r_oceania:'🦘 Ozeanien',
+    r_ua:'🇺🇦 Ukraine', r_us:'🇺🇸 USA', r_jp:'🇯🇵 Japan',
+    r_de:'🇩🇪 Deutschland', r_fr:'🇫🇷 Frankreich', r_br:'🇧🇷 Brasilien',
+    r_au:'🇦🇺 Australien', r_gb:'🇬🇧 Großbritannien', r_in:'🇮🇳 Indien',
+    rating_lost:'Verlorener Reisender 🗺️', rating_tourist:'Tourist ✈️',
+    rating_explorer:'Entdecker 🧭', rating_nav:'Navigator 🌐',
+    rating_carto:'Kartograph 📍', rating_geo:'GeoMeister 🌍',
+  },
+  it:{
+    subtitle:'Esplora il mondo, un\'ipotesi alla volta',
+    diff_label:'Difficoltà', rounds_label:'Round', region_label:'Regione',
+    time_label:'Tempo per Round',
+    d_novice:'Principiante', d_novice_d:'Punteggio facile',
+    d_medium:'Medio', d_medium_d:'Punteggio standard',
+    d_pro:'Pro', d_pro_d:'Punteggio rigoroso',
+    d_master:'Maestro', d_master_d:'Punteggio brutale',
+    play_btn:'Giocare', confirm_btn:'Conferma', round_lbl:'Round',
+    end_game:'Termina il gioco',
+    loading:'Ricerca posizione…', fetching:'Caricamento…',
+    next_round:'Round successivo', see_results:'Risultati',
+    km_away:'km dal luogo', difficulty_lbl:'difficoltà',
+    total_lbl:'Totale', your_guess:'La tua ipotesi',
+    final_label:'Punteggio finale', play_again:'Gioca ancora', settings_btn:'Impostazioni',
+    col_loc:'Posizione', col_dist:'Distanza', col_time:'Tempo', col_score:'Punti',
+    stats_btn:'Stat', stats_title:'Statistiche', st_games:'Partite',
+    st_rounds:'Round totali', st_avg:'Punteggio medio', st_best:'Miglior partita',
+    st_history:'Partite recenti', st_clear:'Cancella',
+    no_move_badge:'Vista statica — navigazione disabilitata',
+    ci_placeholder:'Scrivi il nome del paese…',
+    r_world:'🗺️ Mondo', r_europe:'🇪🇺 Europa', r_asia:'🌏 Asia',
+    r_americas:'🌎 Americhe', r_africa:'🌍 Africa', r_oceania:'🦘 Oceania',
+    r_ua:'🇺🇦 Ucraina', r_us:'🇺🇸 USA', r_jp:'🇯🇵 Giappone',
+    r_de:'🇩🇪 Germania', r_fr:'🇫🇷 Francia', r_br:'🇧🇷 Brasile',
+    r_au:'🇦🇺 Australia', r_gb:'🇬🇧 Regno Unito', r_in:'🇮🇳 India',
+    rating_lost:'Viaggiatore perso 🗺️', rating_tourist:'Turista ✈️',
+    rating_explorer:'Esploratore 🧭', rating_nav:'Navigatore 🌐',
+    rating_carto:'Cartografo 📍', rating_geo:'GeoMaestro 🌍',
+  },
+};
+
+// i18n engine
+let currentLang = 'en';
+const t = k => TR[currentLang]?.[k] ?? TR.en[k] ?? k;
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  applyI18n();
+  if (confirmBtn) confirmBtn.textContent = t('confirm_btn');
+  const td=$('time-display');
+  if(td) td.textContent=(TIME_DISPLAY[lang]||TIME_DISPLAY.en)[cfg.timeIdx];
+  const ci=$('ci-input');
+  if(ci) ci.placeholder=t('ci_placeholder');
+}
+
+// ══════════════════════════════════════════════════ CONFIG
+
+// maxKm   = distance ≤ this gets full 5000 pts
+// zeroKm  = distance where score reaches exactly 0
+// penalty = pts lost per km beyond zeroKm (linear, goes negative)
+const DIFF_CFG = {
+  novice: { maxKm:400, zeroKm:800, penalty:1.5 },
+  medium: { maxKm:200, zeroKm:500, penalty:3   },
+  pro:    { maxKm:100, zeroKm:300, penalty:5   },
+  master: { maxKm:30,  zeroKm:150, penalty:10  },
+};
+
+// ══════════════════════════════════════════════════ COUNTRY DATA (for Novice mode)
+const COUNTRIES = [
+  {n:'Afghanistan',lat:33.93,lng:67.71},{n:'Albania',lat:41.15,lng:20.17},
+  {n:'Algeria',lat:28.03,lng:1.66},{n:'Angola',lat:-11.20,lng:17.87},
+  {n:'Argentina',lat:-38.42,lng:-63.62},{n:'Australia',lat:-25.27,lng:133.78},
+  {n:'Austria',lat:47.52,lng:14.55},{n:'Bangladesh',lat:23.68,lng:90.35},
+  {n:'Belarus',lat:53.71,lng:27.97},{n:'Belgium',lat:50.50,lng:4.47},
+  {n:'Bolivia',lat:-16.29,lng:-63.59},{n:'Bosnia',lat:43.92,lng:17.68},
+  {n:'Brazil',lat:-14.24,lng:-51.93},{n:'Bulgaria',lat:42.73,lng:25.49},
+  {n:'Cambodia',lat:12.57,lng:104.99},{n:'Cameroon',lat:7.37,lng:12.35},
+  {n:'Canada',lat:56.13,lng:-106.35},{n:'Chile',lat:-35.68,lng:-71.54},
+  {n:'Colombia',lat:4.57,lng:-74.30},{n:'Croatia',lat:45.10,lng:15.20},
+  {n:'Cuba',lat:21.52,lng:-77.78},{n:'Czech Republic',lat:49.82,lng:15.47},
+  {n:'Denmark',lat:56.26,lng:9.50},{n:'Ecuador',lat:-1.83,lng:-78.18},
+  {n:'Egypt',lat:26.82,lng:30.80},{n:'Estonia',lat:58.60,lng:25.01},
+  {n:'Ethiopia',lat:9.15,lng:40.49},{n:'Finland',lat:61.92,lng:25.75},
+  {n:'France',lat:46.23,lng:2.21},{n:'Germany',lat:51.17,lng:10.45},
+  {n:'Ghana',lat:7.95,lng:-1.02},{n:'Greece',lat:39.07,lng:21.82},
+  {n:'Guatemala',lat:15.78,lng:-90.23},{n:'Hungary',lat:47.16,lng:19.50},
+  {n:'India',lat:20.59,lng:78.96},{n:'Indonesia',lat:-0.79,lng:113.92},
+  {n:'Iran',lat:32.43,lng:53.69},{n:'Iraq',lat:33.22,lng:43.68},
+  {n:'Ireland',lat:53.41,lng:-8.24},{n:'Israel',lat:31.05,lng:34.85},
+  {n:'Italy',lat:41.87,lng:12.57},{n:'Japan',lat:36.20,lng:138.25},
+  {n:'Jordan',lat:30.59,lng:36.24},{n:'Kazakhstan',lat:48.02,lng:66.92},
+  {n:'Kenya',lat:-0.02,lng:37.91},{n:'Latvia',lat:56.88,lng:24.60},
+  {n:'Lithuania',lat:55.17,lng:23.88},{n:'Malaysia',lat:4.21,lng:108.96},
+  {n:'Mexico',lat:23.63,lng:-102.55},{n:'Morocco',lat:31.79,lng:-7.09},
+  {n:'Mozambique',lat:-18.67,lng:35.53},{n:'Nepal',lat:28.39,lng:84.12},
+  {n:'Netherlands',lat:52.13,lng:5.29},{n:'New Zealand',lat:-40.90,lng:174.89},
+  {n:'Nigeria',lat:9.08,lng:8.68},{n:'Norway',lat:60.47,lng:8.47},
+  {n:'Pakistan',lat:30.38,lng:69.35},{n:'Peru',lat:-9.19,lng:-75.02},
+  {n:'Philippines',lat:12.88,lng:121.77},{n:'Poland',lat:51.92,lng:19.15},
+  {n:'Portugal',lat:39.40,lng:-8.22},{n:'Romania',lat:45.94,lng:24.97},
+  {n:'Russia',lat:61.52,lng:105.32},{n:'Saudi Arabia',lat:23.89,lng:45.08},
+  {n:'Serbia',lat:44.02,lng:21.01},{n:'Slovakia',lat:48.67,lng:19.70},
+  {n:'Slovenia',lat:46.15,lng:14.99},{n:'South Africa',lat:-30.56,lng:22.94},
+  {n:'South Korea',lat:35.91,lng:127.77},{n:'Spain',lat:40.46,lng:-3.75},
+  {n:'Sweden',lat:60.13,lng:18.64},{n:'Switzerland',lat:46.82,lng:8.23},
+  {n:'Taiwan',lat:23.70,lng:120.96},{n:'Tanzania',lat:-6.37,lng:34.89},
+  {n:'Thailand',lat:15.87,lng:100.99},{n:'Tunisia',lat:33.89,lng:9.54},
+  {n:'Turkey',lat:38.96,lng:35.24},{n:'Uganda',lat:1.37,lng:32.29},
+  {n:'Ukraine',lat:48.38,lng:31.17},{n:'United Kingdom',lat:55.38,lng:-3.44},
+  {n:'United States',lat:37.09,lng:-95.71},{n:'Uruguay',lat:-32.52,lng:-55.77},
+  {n:'Uzbekistan',lat:41.38,lng:64.59},{n:'Venezuela',lat:6.42,lng:-66.59},
+  {n:'Vietnam',lat:14.06,lng:108.28},{n:'Zimbabwe',lat:-19.02,lng:29.15},
+];
+
+// ══════════════════════════════════════════════════ STATS (localStorage)
+const STATS_KEY = 'geoquest_stats';
+function getStats(){
+  try{ return JSON.parse(localStorage.getItem(STATS_KEY)||'null') ||
+    {gamesPlayed:0,totalRounds:0,totalScore:0,totalMax:0,bestScore:0,bestPct:0,history:[]}; }
+  catch{ return {gamesPlayed:0,totalRounds:0,totalScore:0,totalMax:0,bestScore:0,bestPct:0,history:[]}; }
+}
+function saveGameStats(sc, rounds){
+  const s = getStats();
+  const max = 5000*rounds, pct = max>0?sc/max:0;
+  s.gamesPlayed++;
+  s.totalRounds += rounds;
+  s.totalScore  += sc;
+  s.totalMax    += max;
+  if(pct > s.bestPct){ s.bestPct=pct; s.bestScore=sc; }
+  s.history.unshift({score:sc,rounds,max,date:Date.now()});
+  s.history = s.history.slice(0,20);
+  try{ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }catch{}
+}
+
+// ══════════════════════════════════════════════════ HIGH SCORES
+const HS_KEY = 'geoquest_hiscores';
+function saveHighScore(sc,rounds,diff,region,timeIdx){
+  try{
+    const arr = JSON.parse(localStorage.getItem(HS_KEY)||'[]');
+    const max=5000*rounds;
+    arr.push({score:sc,max,rounds,diff,region,timeIdx,date:Date.now()});
+    arr.sort((a,b)=>(b.score/b.max)-(a.score/a.max));
+    localStorage.setItem(HS_KEY, JSON.stringify(arr.slice(0,50)));
+  }catch{}
+}
+
+// Time slider: 0=30s 1=60s 2=120s 3=300s 4=600s 5=∞
+const TIME_VALUES = [30, 60, 120, 300, 600, Infinity];
+const TIME_DISPLAY = {
+  en:  ['30 sec','1 min','2 min','5 min','10 min','∞ Unlimited'],
+  uk:  ['30 сек','1 хв','2 хв','5 хв','10 хв','∞ Без ліміту'],
+  es:  ['30 seg','1 min','2 min','5 min','10 min','∞ Sin límite'],
+  fr:  ['30 sec','1 min','2 min','5 min','10 min','∞ Illimité'],
+  pt:  ['30 seg','1 min','2 min','5 min','10 min','∞ Ilimitado'],
+  de:  ['30 Sek','1 Min','2 Min','5 Min','10 Min','∞ Unbegrenzt'],
+  it:  ['30 sec','1 min','2 min','5 min','10 min','∞ Illimitato'],
+};
+
+const REGION_CFG = {
+  world:    { sparql:'' },
+  europe:   { sparql:'?place wdt:P30 wd:Q46 .' },
+  asia:     { sparql:'?place wdt:P30 wd:Q48 .' },
+  americas: { sparql:'{ ?place wdt:P30 wd:Q49 . } UNION { ?place wdt:P30 wd:Q18 . }' },
+  africa:   { sparql:'?place wdt:P30 wd:Q15 .' },
+  oceania:  { sparql:'?place wdt:P30 wd:Q55643 .' },
+  ua:{ sparql:'?place wdt:P17 wd:Q212 .' },
+  us:{ sparql:'?place wdt:P17 wd:Q30 .' },
+  jp:{ sparql:'?place wdt:P17 wd:Q17 .' },
+  de:{ sparql:'?place wdt:P17 wd:Q183 .' },
+  fr:{ sparql:'?place wdt:P17 wd:Q142 .' },
+  br:{ sparql:'?place wdt:P17 wd:Q155 .' },
+  au:{ sparql:'?place wdt:P17 wd:Q408 .' },
+  gb:{ sparql:'?place wdt:P17 wd:Q145 .' },
+  in:{ sparql:'?place wdt:P17 wd:Q668 .' },
+};
+
+// Native language for parenthetical display per region
+const REGION_NATIVE = {
+  ua:'uk', jp:'ja', de:'de', fr:'fr', br:'pt', in:'hi',
+  it:'it', es:'es', kr:'ko', cn:'zh',
+};
+// Wikidata language codes (same as BCP47 for most)
+const LANG_WD = { en:'en', uk:'uk', es:'es', fr:'fr', pt:'pt', de:'de', it:'it' };
+
+// Fallback locations per region (with optional native name)
+const FB = {
+  world:[
+    {n:'Tokyo',nat:'東京',lat:35.6762,lng:139.6503},{n:'New York',lat:40.7580,lng:-73.9855},
+    {n:'Paris',nat:'Paris',lat:48.8584,lng:2.2945},{n:'Sydney',lat:-33.8568,lng:151.2153},
+    {n:'Rio de Janeiro',nat:'Rio de Janeiro',lat:-22.9068,lng:-43.1729},
+    {n:'Cape Town',lat:-33.9249,lng:18.4241},{n:'Mumbai',nat:'मुंबई',lat:19.0760,lng:72.8777},
+    {n:'Moscow',nat:'Москва',lat:55.7558,lng:37.6173},{n:'Bangkok',nat:'กรุงเทพฯ',lat:13.7563,lng:100.5018},
+    {n:'Istanbul',nat:'İstanbul',lat:41.0082,lng:28.9784},
+    {n:'Buenos Aires',lat:-34.6037,lng:-58.3816},{n:'Lagos',lat:6.5244,lng:3.3792},
+    {n:'Toronto',lat:43.6532,lng:-79.3832},{n:'Dubai',nat:'دبي',lat:25.2048,lng:55.2708},
+    {n:'Singapore',lat:1.3521,lng:103.8198},{n:'Amsterdam',lat:52.3676,lng:4.9041},
+    {n:'Prague',nat:'Praha',lat:50.0755,lng:14.4378},{n:'Lisbon',nat:'Lisboa',lat:38.7169,lng:-9.1399},
+    {n:'Nairobi',lat:-1.2921,lng:36.8219},{n:'Mexico City',nat:'Ciudad de México',lat:19.4326,lng:-99.1332},
+    {n:'Jakarta',lat:-6.2088,lng:106.8456},{n:'Stockholm',lat:59.3293,lng:18.0686},
+    {n:'Cairo',nat:'القاهرة',lat:30.0444,lng:31.2357},{n:'Reykjavik',nat:'Reykjavík',lat:64.1466,lng:-21.9426},
+    {n:'Kathmandu',nat:'काठमाडौँ',lat:27.7172,lng:85.3240},{n:'Marrakech',nat:'مراكش',lat:31.6295,lng:-7.9811},
+    {n:'Auckland',lat:-36.8509,lng:174.7645},{n:'Havana',nat:'La Habana',lat:23.1136,lng:-82.3666},
+    {n:'Machu Picchu',lat:-13.1631,lng:-72.5450},{n:'Kyiv',nat:'Київ',lat:50.4501,lng:30.5234},
+  ],
+  europe:[
+    {n:'Paris',nat:'Paris',lat:48.8584,lng:2.2945},{n:'Berlin',nat:'Berlin',lat:52.5200,lng:13.4050},
+    {n:'Rome',nat:'Roma',lat:41.9028,lng:12.4964},{n:'Madrid',nat:'Madrid',lat:40.4168,lng:-3.7038},
+    {n:'Amsterdam',lat:52.3676,lng:4.9041},{n:'Prague',nat:'Praha',lat:50.0755,lng:14.4378},
+    {n:'Vienna',nat:'Wien',lat:48.2082,lng:16.3738},{n:'Warsaw',nat:'Warszawa',lat:52.2297,lng:21.0122},
+    {n:'Budapest',lat:47.4979,lng:19.0402},{n:'Lisbon',nat:'Lisboa',lat:38.7169,lng:-9.1399},
+    {n:'Stockholm',lat:59.3293,lng:18.0686},{n:'Oslo',lat:59.9139,lng:10.7522},
+    {n:'Copenhagen',nat:'København',lat:55.6761,lng:12.5683},{n:'Helsinki',lat:60.1699,lng:24.9384},
+    {n:'Athens',nat:'Αθήνα',lat:37.9838,lng:23.7275},{n:'Reykjavik',nat:'Reykjavík',lat:64.1466,lng:-21.9426},
+    {n:'Brussels',nat:'Bruxelles',lat:50.8503,lng:4.3517},{n:'Zurich',nat:'Zürich',lat:47.3769,lng:8.5417},
+    {n:'Barcelona',lat:41.3851,lng:2.1734},{n:'Kyiv',nat:'Київ',lat:50.4501,lng:30.5234},
+    {n:'Istanbul',nat:'İstanbul',lat:41.0082,lng:28.9784},{n:'Moscow',nat:'Москва',lat:55.7558,lng:37.6173},
+  ],
+  asia:[
+    {n:'Tokyo',nat:'東京',lat:35.6762,lng:139.6503},{n:'Bangkok',nat:'กรุงเทพฯ',lat:13.7563,lng:100.5018},
+    {n:'Mumbai',nat:'मुंबई',lat:19.0760,lng:72.8777},{n:'Dubai',nat:'دبي',lat:25.2048,lng:55.2708},
+    {n:'Singapore',lat:1.3521,lng:103.8198},{n:'Jakarta',lat:-6.2088,lng:106.8456},
+    {n:'Kathmandu',nat:'काठमाडौँ',lat:27.7172,lng:85.3240},{n:'Seoul',nat:'서울',lat:37.5665,lng:126.9780},
+    {n:'Beijing',nat:'北京',lat:39.9042,lng:116.4074},{n:'Shanghai',nat:'上海',lat:31.2304,lng:121.4737},
+    {n:'Taipei',nat:'臺北',lat:25.0330,lng:121.5654},{n:'Kuala Lumpur',lat:3.1390,lng:101.6869},
+    {n:'Hanoi',nat:'Hà Nội',lat:21.0285,lng:105.8542},{n:'Tehran',nat:'تهران',lat:35.6892,lng:51.3890},
+    {n:'Riyadh',nat:'الرياض',lat:24.7136,lng:46.6753},{n:'Karachi',nat:'کراچی',lat:24.8607,lng:67.0011},
+  ],
+  americas:[
+    {n:'New York',lat:40.7580,lng:-73.9855},{n:'Rio de Janeiro',lat:-22.9068,lng:-43.1729},
+    {n:'Buenos Aires',lat:-34.6037,lng:-58.3816},{n:'Mexico City',nat:'Ciudad de México',lat:19.4326,lng:-99.1332},
+    {n:'Toronto',lat:43.6532,lng:-79.3832},{n:'Havana',nat:'La Habana',lat:23.1136,lng:-82.3666},
+    {n:'Chicago',lat:41.8781,lng:-87.6298},{n:'Los Angeles',lat:34.0522,lng:-118.2437},
+    {n:'Miami',lat:25.7617,lng:-80.1918},{n:'São Paulo',lat:-23.5505,lng:-46.6333},
+    {n:'Bogotá',lat:4.7110,lng:-74.0721},{n:'Lima',lat:-12.0464,lng:-77.0428},
+    {n:'Santiago',lat:-33.4489,lng:-70.6693},{n:'Vancouver',lat:49.2827,lng:-123.1207},
+  ],
+  africa:[
+    {n:'Cape Town',lat:-33.9249,lng:18.4241},{n:'Lagos',lat:6.5244,lng:3.3792},
+    {n:'Nairobi',lat:-1.2921,lng:36.8219},{n:'Cairo',nat:'القاهرة',lat:30.0444,lng:31.2357},
+    {n:'Marrakech',nat:'مراكش',lat:31.6295,lng:-7.9811},{n:'Johannesburg',lat:-26.2041,lng:28.0473},
+    {n:'Casablanca',nat:'الدار البيضاء',lat:33.5731,lng:-7.5898},{n:'Tunis',nat:'تونس',lat:36.8065,lng:10.1815},
+    {n:'Accra',lat:5.6037,lng:-0.1870},{n:'Addis Ababa',nat:'አዲስ አበባ',lat:9.0320,lng:38.7469},
+  ],
+  oceania:[
+    {n:'Sydney',lat:-33.8568,lng:151.2153},{n:'Auckland',lat:-36.8509,lng:174.7645},
+    {n:'Melbourne',lat:-37.8136,lng:144.9631},{n:'Brisbane',lat:-27.4698,lng:153.0251},
+    {n:'Perth',lat:-31.9505,lng:115.8605},{n:'Wellington',lat:-41.2924,lng:174.7787},
+    {n:'Adelaide',lat:-34.9285,lng:138.6007},{n:'Canberra',lat:-35.2809,lng:149.1300},
+  ],
+  ua:[
+    {n:'Kyiv',nat:'Київ',lat:50.4501,lng:30.5234},{n:'Lviv',nat:'Львів',lat:49.8397,lng:24.0297},
+    {n:'Kharkiv',nat:'Харків',lat:49.9935,lng:36.2304},{n:'Odesa',nat:'Одеса',lat:46.4825,lng:30.7233},
+    {n:'Dnipro',nat:'Дніпро',lat:48.4647,lng:35.0462},{n:'Zaporizhzhia',nat:'Запоріжжя',lat:47.8388,lng:35.1396},
+    {n:'Vinnytsia',nat:'Вінниця',lat:49.2331,lng:28.4682},{n:'Chernivtsi',nat:'Чернівці',lat:48.2921,lng:25.9358},
+    {n:'Ivano-Frankivsk',nat:'Івано-Франківськ',lat:48.9226,lng:24.7111},{n:'Poltava',nat:'Полтава',lat:49.5935,lng:34.5408},
+    {n:'Ternopil',nat:'Тернопіль',lat:49.5535,lng:25.5948},{n:'Lutsk',nat:'Луцьк',lat:50.7472,lng:25.3254},
+  ],
+  us:[
+    {n:'New York',lat:40.7580,lng:-73.9855},{n:'Los Angeles',lat:34.0522,lng:-118.2437},
+    {n:'Chicago',lat:41.8781,lng:-87.6298},{n:'Houston',lat:29.7604,lng:-95.3698},
+    {n:'Miami',lat:25.7617,lng:-80.1918},{n:'San Francisco',lat:37.7749,lng:-122.4194},
+    {n:'Seattle',lat:47.6062,lng:-122.3321},{n:'Boston',lat:42.3601,lng:-71.0589},
+    {n:'Denver',lat:39.7392,lng:-104.9903},{n:'Las Vegas',lat:36.1699,lng:-115.1398},
+    {n:'New Orleans',lat:29.9511,lng:-90.0715},{n:'Atlanta',lat:33.7490,lng:-84.3880},
+  ],
+  jp:[
+    {n:'Tokyo',nat:'東京',lat:35.6762,lng:139.6503},{n:'Osaka',nat:'大阪',lat:34.6937,lng:135.5023},
+    {n:'Kyoto',nat:'京都',lat:35.0116,lng:135.7681},{n:'Hiroshima',nat:'広島',lat:34.3853,lng:132.4553},
+    {n:'Sapporo',nat:'札幌',lat:43.0618,lng:141.3545},{n:'Nagoya',nat:'名古屋',lat:35.1815,lng:136.9066},
+    {n:'Fukuoka',nat:'福岡',lat:33.5904,lng:130.4017},{n:'Yokohama',nat:'横浜',lat:35.4437,lng:139.6380},
+    {n:'Nara',nat:'奈良',lat:34.6851,lng:135.8048},{n:'Kobe',nat:'神戸',lat:34.6901,lng:135.1956},
+  ],
+  de:[
+    {n:'Berlin',lat:52.5200,lng:13.4050},{n:'Munich',nat:'München',lat:48.1351,lng:11.5820},
+    {n:'Hamburg',lat:53.5753,lng:10.0153},{n:'Cologne',nat:'Köln',lat:50.9333,lng:6.9500},
+    {n:'Frankfurt',lat:50.1109,lng:8.6821},{n:'Dresden',lat:51.0504,lng:13.7373},
+    {n:'Stuttgart',lat:48.7758,lng:9.1829},{n:'Leipzig',lat:51.3397,lng:12.3731},
+    {n:'Nuremberg',nat:'Nürnberg',lat:49.4521,lng:11.0767},{n:'Heidelberg',lat:49.3988,lng:8.6724},
+  ],
+  fr:[
+    {n:'Paris',lat:48.8584,lng:2.2945},{n:'Marseille',lat:43.2965,lng:5.3698},
+    {n:'Lyon',lat:45.7640,lng:4.8357},{n:'Toulouse',lat:43.6047,lng:1.4442},
+    {n:'Nice',lat:43.7102,lng:7.2620},{n:'Bordeaux',lat:44.8378,lng:-0.5792},
+    {n:'Strasbourg',lat:48.5734,lng:7.7521},{n:'Nantes',lat:47.2184,lng:-1.5536},
+    {n:'Montpellier',lat:43.6108,lng:3.8767},{n:'Cannes',lat:43.5528,lng:7.0174},
+  ],
+  br:[
+    {n:'Rio de Janeiro',lat:-22.9068,lng:-43.1729},{n:'São Paulo',lat:-23.5505,lng:-46.6333},
+    {n:'Salvador',lat:-12.9714,lng:-38.5014},{n:'Brasília',lat:-15.7975,lng:-47.8919},
+    {n:'Fortaleza',lat:-3.7172,lng:-38.5433},{n:'Manaus',lat:-3.1190,lng:-60.0217},
+    {n:'Curitiba',lat:-25.4290,lng:-49.2671},{n:'Recife',lat:-8.0476,lng:-34.8770},
+  ],
+  au:[
+    {n:'Sydney',lat:-33.8568,lng:151.2153},{n:'Melbourne',lat:-37.8136,lng:144.9631},
+    {n:'Brisbane',lat:-27.4698,lng:153.0251},{n:'Perth',lat:-31.9505,lng:115.8605},
+    {n:'Adelaide',lat:-34.9285,lng:138.6007},{n:'Canberra',lat:-35.2809,lng:149.1300},
+    {n:'Darwin',lat:-12.4634,lng:130.8456},{n:'Gold Coast',lat:-28.0167,lng:153.4000},
+  ],
+  gb:[
+    {n:'London',lat:51.5074,lng:-0.1278},{n:'Edinburgh',lat:55.9533,lng:-3.1883},
+    {n:'Manchester',lat:53.4808,lng:-2.2426},{n:'Birmingham',lat:52.4862,lng:-1.8904},
+    {n:'Bristol',lat:51.4545,lng:-2.5879},{n:'Glasgow',lat:55.8642,lng:-4.2518},
+    {n:'Liverpool',lat:53.4084,lng:-2.9916},{n:'Oxford',lat:51.7520,lng:-1.2577},
+  ],
+  in:[
+    {n:'Mumbai',nat:'मुंबई',lat:19.0760,lng:72.8777},{n:'Delhi',nat:'दिल्ली',lat:28.7041,lng:77.1025},
+    {n:'Bangalore',nat:'ಬೆಂಗಳೂರು',lat:12.9716,lng:77.5946},{n:'Hyderabad',nat:'హైదరాబాద్',lat:17.3850,lng:78.4867},
+    {n:'Chennai',nat:'சென்னை',lat:13.0827,lng:80.2707},{n:'Kolkata',nat:'কলকাতা',lat:22.5726,lng:88.3639},
+    {n:'Pune',nat:'पुणे',lat:18.5204,lng:73.8567},{n:'Jaipur',nat:'जयपुर',lat:26.9124,lng:75.7873},
+    {n:'Ahmedabad',nat:'અમદાવાદ',lat:23.0225,lng:72.5714},{n:'Goa',lat:15.4909,lng:73.8278},
+  ],
+};
+
+// ══════════════════════════════════════════════════ AUDIO ENGINE
+
+const AudioEngine = (() => {
+  let ctx = null;
+  let nodes = [];
+  let loopTimers = [];
+
+  function getCtx() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function stopAll() {
+    nodes.forEach(n => { try { n.stop(0); } catch(e){} });
+    nodes = []; loopTimers.forEach(clearInterval); loopTimers = [];
+  }
+
+  function makeReverb(c, duration=1.5, decay=2) {
+    const conv=c.createConvolver(), len=c.sampleRate*duration;
+    const buf=c.createBuffer(2,len,c.sampleRate);
+    for(let ch=0;ch<2;ch++){const d=buf.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);}
+    conv.buffer=buf; return conv;
+  }
+
+  function makeLimiter(c) {
+    const comp=c.createDynamicsCompressor();
+    comp.threshold.value=-6;comp.knee.value=3;comp.ratio.value=20;comp.attack.value=0.001;comp.release.value=0.1;
+    return comp;
+  }
+
+  // ── Geo themes ──
+  function geoMenuTheme() {
+    stopAll(); const c=getCtx();
+    const master=c.createGain(); master.gain.value=0.18;
+    const reverb=makeReverb(c,3,1.5), limiter=makeLimiter(c);
+    master.connect(reverb); reverb.connect(limiter); limiter.connect(c.destination);
+    const bpm=68, beat=60/bpm;
+    const chords=[[261.63,329.63,392.00],[246.94,311.13,369.99],[220.00,277.18,329.63],[196.00,261.63,311.13]];
+    let t=c.currentTime; const loopLen=beat*8;
+    function schedule(){
+      chords.forEach((ch,i)=>ch.forEach(f=>{[1,2].forEach(mult=>{
+        const o=c.createOscillator(),g=c.createGain();
+        o.type='sine'; o.frequency.value=f*mult; const s=t+i*beat*2;
+        g.gain.setValueAtTime(0,s); g.gain.linearRampToValueAtTime(mult===1?0.3:0.08,s+0.1);
+        g.gain.exponentialRampToValueAtTime(0.01,s+beat*2-0.1);
+        o.connect(g); g.connect(master); o.start(s); o.stop(s+beat*2); nodes.push(o);
+      });})); t+=loopLen;
+    }
+    schedule(); loopTimers.push(setInterval(()=>{if(!nodes.length)return;schedule();},loopLen*1000-200));
+  }
+
+  function geoGameTheme() {
+    stopAll(); const c=getCtx();
+    const master=c.createGain(); master.gain.value=0.16;
+    const reverb=makeReverb(c,1.5,2.5), limiter=makeLimiter(c);
+    master.connect(reverb); reverb.connect(limiter); limiter.connect(c.destination);
+    const bpm=105, beat=60/bpm;
+    const melody=[392,440,494,523,494,440,392,349,392,440,392,349,330,349,392,330];
+    const bass  =[130,130,146,146,130,130,110,110,130,130,146,146,123,123,130,130];
+    let t=c.currentTime; const loopLen=beat*melody.length;
+    function schedule(){
+      melody.forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=f;const s=t+i*beat;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.25,s+0.02);g.gain.exponentialRampToValueAtTime(0.01,s+beat*0.85);o.connect(g);g.connect(master);o.start(s);o.stop(s+beat);nodes.push(o);});
+      bass.forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=f;const s=t+i*beat;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.18,s+0.05);g.gain.exponentialRampToValueAtTime(0.01,s+beat*0.9);o.connect(g);g.connect(master);o.start(s);o.stop(s+beat);nodes.push(o);});
+      t+=loopLen;
+    }
+    schedule(); loopTimers.push(setInterval(()=>{if(!nodes.length)return;schedule();},loopLen*1000-200));
+  }
+
+  function geoUrgentTheme() {
+    stopAll(); const c=getCtx();
+    const master=c.createGain(); master.gain.value=0.15;
+    const limiter=makeLimiter(c); master.connect(limiter); limiter.connect(c.destination);
+    const bpm=140, beat=60/bpm;
+    const melody=[523,587,659,698,659,587,523,494,523,587,659,698,740,698,659,587];
+    const perc  =[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1];
+    let t=c.currentTime; const loopLen=beat*melody.length;
+    function schedule(){
+      melody.forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type='square';o.frequency.value=f;const s=t+i*beat;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.12,s+0.01);g.gain.exponentialRampToValueAtTime(0.001,s+beat*0.7);o.connect(g);g.connect(master);o.start(s);o.stop(s+beat);nodes.push(o);});
+      perc.forEach((p,i)=>{if(!p)return;const s=t+i*beat;const buf=c.createBuffer(1,c.sampleRate*0.05,c.sampleRate);const data=buf.getChannelData(0);for(let j=0;j<data.length;j++)data[j]=(Math.random()*2-1)*(1-j/data.length);const src=c.createBufferSource(),g=c.createGain();src.buffer=buf;g.gain.value=0.3;src.connect(g);g.connect(master);src.start(s);nodes.push(src);});
+      t+=loopLen;
+    }
+    schedule(); loopTimers.push(setInterval(()=>{if(!nodes.length)return;schedule();},loopLen*1000-200));
+  }
+
+  // ── Wordle themes ──
+  function wordleMenuTheme() {
+    stopAll(); const c=getCtx();
+    const master=c.createGain(); master.gain.value=0.14;
+    const reverb=makeReverb(c,2,2), limiter=makeLimiter(c);
+    master.connect(reverb); reverb.connect(limiter); limiter.connect(c.destination);
+    const bpm=80, beat=60/bpm;
+    const chords=[[261.63,329.63,392.00,493.88],[246.94,311.13,369.99,466.16],[220.00,261.63,329.63,415.30],[196.00,246.94,311.13,392.00]];
+    const melody=[523,587,523,494,523,440,494,523];
+    let t=c.currentTime; const loopLen=beat*8;
+    function schedule(){
+      chords.forEach((ch,i)=>ch.forEach(f=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=f;const s=t+i*beat*2;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.15,s+0.15);g.gain.exponentialRampToValueAtTime(0.01,s+beat*1.8);o.connect(g);g.connect(master);o.start(s);o.stop(s+beat*2);nodes.push(o);}));
+      melody.forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=f;const s=t+i*beat+beat*0.25;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.18,s+0.03);g.gain.exponentialRampToValueAtTime(0.001,s+beat*0.7);o.connect(g);g.connect(master);o.start(s);o.stop(s+beat);nodes.push(o);});
+      t+=loopLen;
+    }
+    schedule(); loopTimers.push(setInterval(()=>{if(!nodes.length)return;schedule();},loopLen*1000-200));
+  }
+
+  function wordleGameTheme() {
+    stopAll(); const c=getCtx();
+    const master=c.createGain(); master.gain.value=0.12;
+    const reverb=makeReverb(c,2.5,1.8), limiter=makeLimiter(c);
+    master.connect(reverb); reverb.connect(limiter); limiter.connect(c.destination);
+    const bpm=72, beat=60/bpm;
+    const pad=[293.66,369.99,440.00];
+    const melody=[440,0,493.88,0,523.25,493.88,440,0,392,0,440,0,493.88,523.25,493.88,0];
+    let t=c.currentTime; const loopLen=beat*16;
+    function schedule(){
+      pad.forEach(f=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.12,t+0.5);g.gain.setValueAtTime(0.12,t+loopLen-0.5);g.gain.linearRampToValueAtTime(0,t+loopLen);o.connect(g);g.connect(master);o.start(t);o.stop(t+loopLen);nodes.push(o);});
+      melody.forEach((f,i)=>{if(!f)return;const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=f;const s=t+i*beat*0.5;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(0.14,s+0.02);g.gain.exponentialRampToValueAtTime(0.001,s+beat*0.4);o.connect(g);g.connect(master);o.start(s);o.stop(s+beat*0.45);nodes.push(o);});
+      t+=loopLen;
+    }
+    schedule(); loopTimers.push(setInterval(()=>{if(!nodes.length)return;schedule();},loopLen*1000-200));
+  }
+
+  // ── SFX ──
+  function sfxPin()        { try{const c=getCtx(),o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(1200,c.currentTime);o.frequency.exponentialRampToValueAtTime(600,c.currentTime+0.15);g.gain.setValueAtTime(0.2,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.2);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.2);}catch{} }
+  function sfxResultGood() { try{const c=getCtx();[523,659,784,1047].forEach((f,i)=>{const t=c.currentTime+i*0.1;const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.18,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.35);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.35);});}catch{} }
+  function sfxResultBad()  { try{const c=getCtx();[392,349,311,261].forEach((f,i)=>{const t=c.currentTime+i*0.12;const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(0.15,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.3);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.3);});}catch{} }
+  function sfxType()       { try{const c=getCtx(),o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=800;g.gain.setValueAtTime(0.15,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.08);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.08);}catch{} }
+  function sfxTick(u)      { try{const c=getCtx(),o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=u?1100:880;g.gain.setValueAtTime(u?0.22:0.12,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.08);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.08);}catch{} }
+  function sfxWin()        { try{const c=getCtx();const reverb=makeReverb(c,1,3);reverb.connect(c.destination);[523,659,784,659,880,1047].forEach((f,i)=>{const t=c.currentTime+i*0.09;const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o.connect(g);g.connect(reverb);o.start(t);o.stop(t+0.5);});}catch{} }
+  function sfxStart()      { try{const c=getCtx();[392,523,659,784].forEach((f,i)=>{const t=c.currentTime+i*0.09;const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.18,t+0.04);g.gain.exponentialRampToValueAtTime(0.001,t+0.3);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.3);});}catch{} }
+  function sfxFlip()       { try{const c=getCtx();[0,0.12,0.24,0.36,0.48].forEach((delay,i)=>{const t=c.currentTime+delay;const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(600-i*40,t);o.frequency.linearRampToValueAtTime(400-i*30,t+0.1);g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.13);});}catch{} }
+  function sfxError()      { try{const c=getCtx(),o=c.createOscillator(),g=c.createGain();o.type='sawtooth';o.frequency.setValueAtTime(200,c.currentTime);o.frequency.linearRampToValueAtTime(80,c.currentTime+0.2);g.gain.setValueAtTime(0.15,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.25);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.25);}catch{} }
+  function sfxStreak()     { try{const c=getCtx();const reverb=makeReverb(c,1,3);reverb.connect(c.destination);[523,659,784,659,880,1047].forEach((f,i)=>{const t=c.currentTime+i*0.09;const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o.connect(g);g.connect(reverb);o.start(t);o.stop(t+0.5);});}catch{} }
+
+  return {
+    stopAll,
+    geo:   { menu:geoMenuTheme, game:geoGameTheme, urgent:geoUrgentTheme },
+    wordle:{ menu:wordleMenuTheme, game:wordleGameTheme },
+    sfx:{   pin:sfxPin, resultGood:sfxResultGood, resultBad:sfxResultBad,
+            type:sfxType, tick:sfxTick, win:sfxWin, start:sfxStart,
+            flip:sfxFlip, error:sfxError, streak:sfxStreak }
+  };
+})();
+
+// ══════════════════════════════════════════════════ MUTE WRAPPER
+
+let muteSFX   = localStorage.getItem('pr_msfx') === '1';
+let muteMusic = localStorage.getItem('pr_mmus') === '1';
+let _bgmState = null;
+
+function playBGM(state) {
+  _bgmState = state;
+  if (muteMusic) return;
+  AudioEngine.stopAll();
+  if (state === 'menu')   AudioEngine.geo.menu();
+  else if (state === 'game')   AudioEngine.geo.game();
+  else if (state === 'urgent') AudioEngine.geo.urgent();
+}
+function stopBGM() { AudioEngine.stopAll(); _bgmState = null; }
+
+function playSFX(name, ...args) {
+  if (muteSFX) return;
+  AudioEngine.sfx[name]?.(...args);
+}
+
+function toggleSFX() {
+  muteSFX = !muteSFX;
+  localStorage.setItem('pr_msfx', muteSFX ? '1' : '0');
+  updateMuteUI();
+}
+function toggleMusic() {
+  muteMusic = !muteMusic;
+  localStorage.setItem('pr_mmus', muteMusic ? '1' : '0');
+  if (muteMusic) AudioEngine.stopAll();
+  else if (_bgmState) playBGM(_bgmState);
+  updateMuteUI();
+}
+function updateMuteUI() {
+  const sfxBtn = $('mute-sfx-btn'), musBtn = $('mute-mus-btn');
+  if (sfxBtn) sfxBtn.classList.toggle('muted', muteSFX);
+  if (musBtn) musBtn.classList.toggle('muted', muteMusic);
+  const sSfx = $('start-mute-sfx'), sMus = $('start-mute-mus');
+  if (sSfx) sSfx.classList.toggle('muted', muteSFX);
+  if (sMus) sMus.classList.toggle('muted', muteMusic);
+}
+
+// BGM facade — all calls route through AudioEngine
+const BGM = { play: playBGM, stop: stopBGM };
+
+function playTick(u=false){ playSFX('tick', u); }
+function playClick(){ playSFX('type'); }
+function playResult(pts){ if(pts/5000>.5) playSFX('resultGood'); else playSFX('resultBad'); }
+function playStart(){ playSFX('start'); }
+function playFinal(){ playSFX('win'); }
+
+// ══════════════════════════════════════════════════ STATE
+
+let cfg = { diff:'medium', rounds:5, region:'world', timeIdx:1 };
+let pool=[], cur=null, round=0, score=0, hist=[];
+let pin=null, gMap=null, rMap=null;
+let timerInterval=null, timeLeft=0, roundTime=0;
+
+// Pre-validated location pool (filled async in background)
+let readyPool = [];
+let poolFilling = false;
+let usedKeys = new Set(); // deduplicate locations within one game
+
+function locKey(loc){ return `${Math.round(loc.lat*100)},${Math.round(loc.lng*100)}`; }
+
+// Add small random offset (~0.5–1.5 km) so we land on actual streets, not always city centers
+function jitter(loc){
+  const r = () => (Math.random()-.5)*.018;
+  return { ...loc, lat: loc.lat+r(), lng: loc.lng+r() };
+}
+
+const $=id=>document.getElementById(id);
+const sv=$('sv'), loadEl=$('loading'), resultOv=$('result-ov');
+const confirmBtn=$('confirm-btn'), mapPanel=$('map-panel'), mapWrap=$('map-wrap');
+
+// ══════════════════════════════════════════════════ SCREENS
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=$(id);
+  if(el){el.classList.add('active');if(id==='game')el.style.zIndex='2';else el.style.zIndex='';}
+  // Background music per screen
+  if(id==='start'||id==='stats')BGM.play('menu');
+  else if(id==='final'){BGM.stop();}
+}
+
+// ══════════════════════════════════════════════════ TIMER
+
+function startTimer(sec){
+  stopTimer();
+  if(!isFinite(sec)){
+    // Unlimited mode — hide bar, show ∞
+    $('timer-track').style.opacity='0';
+    $('timer-num').textContent='∞';
+    $('timer-num').style.color='var(--muted)';
+    timeLeft=Infinity; roundTime=Infinity;
+    return;
+  }
+  $('timer-track').style.opacity='1';
+  timeLeft=sec;roundTime=sec;updateTimerUI();
+  timerInterval=setInterval(()=>{
+    timeLeft--;updateTimerUI();
+    if(timeLeft===10)BGM.play('urgent');
+    if(timeLeft<=10&&timeLeft>0)playTick(timeLeft<=5);
+    if(timeLeft<=0){stopTimer();autoSubmit();}
+  },1000);
+}
+function stopTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;}}
+function updateTimerUI(){
+  if(!isFinite(roundTime))return;
+  const pct=roundTime>0?timeLeft/roundTime:0;
+  const bar=$('timer-bar');
+  bar.style.width=(pct*100)+'%';
+  bar.style.background=pct>.5?'#7950e5':pct>.2?'#fecd19':'#e94560';
+  bar.classList.toggle('pulse',timeLeft<=10&&timeLeft>0);
+  const tn=$('timer-num');
+  const m=Math.floor(timeLeft/60),s=String(timeLeft%60).padStart(2,'0');
+  tn.textContent=timeLeft>=60?`${m}:${s}`:`${timeLeft}s`;
+  tn.style.color=timeLeft<=10?'#e94560':'var(--muted)';
+}
+function autoSubmit(){
+  if(!pin){const c=gMap.getCenter();const ll=L.latLng(c.lat+(Math.random()-.5)*30,c.lng+(Math.random()-.5)*60);pin=L.marker(ll,{icon:mkIcon('#e94560')}).addTo(gMap);confirmBtn.classList.add('ready');}
+  confirmGuess();
+}
+
+// ══════════════════════════════════════════════════ MAP ICONS
+
+const mkIcon=(color,size=14)=>L.divIcon({className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],
+  html:`<div style="width:${size}px;height:${size}px;background:${color};border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 8px ${color}88,0 2px 6px rgba(0,0,0,.5)"></div>`});
+
+// ══════════════════════════════════════════════════ GUESS MAP
+
+function buildGMap(){
+  if(gMap){gMap.remove();gMap=null;pin=null;}
+  gMap=L.map('gmap',{center:[20,0],zoom:2,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:18,subdomains:'abcd'}).addTo(gMap);
+  gMap.on('click',e=>{
+    if(pin)gMap.removeLayer(pin);
+    pin=L.marker(e.latlng,{icon:mkIcon('#e94560',14)}).addTo(gMap);
+    confirmBtn.disabled=false;confirmBtn.classList.add('ready');
+    confirmBtn.textContent=t('confirm_btn');
+    playClick();
+  });
+}
+
+// ══════════════════════════════════════════════════ WIKIDATA
+
+function buildSparql(regionKey){
+  const rf=REGION_CFG[regionKey]?.sparql||'';
+  const uiLang=LANG_WD[currentLang]||'en';
+  const nativeLang=REGION_NATIVE[regionKey];
+  const nativePart=nativeLang&&nativeLang!==uiLang
+    ?`OPTIONAL { ?place rdfs:label ?nativeName FILTER(LANG(?nativeName) = '${nativeLang}') }`:'';
+  const uiPart=uiLang!=='en'
+    ?`OPTIONAL { ?place rdfs:label ?localName FILTER(LANG(?localName) = '${uiLang}') }`:'';
+  // Exclude China (Q148) and North Korea (Q423) — no Google Street View coverage
+  const excludeNoSV = regionKey==='world'||regionKey==='asia'
+    ? 'FILTER NOT EXISTS { ?place wdt:P17 wd:Q148 . } FILTER NOT EXISTS { ?place wdt:P17 wd:Q423 . }' : '';
+  return `SELECT ?lat ?lon ?engName ?localName ?nativeName WHERE {
+  ?place wdt:P31/wdt:P279* wd:Q515 .
+  ?place wdt:P625 ?coord .
+  ?place wdt:P1082 ?pop . FILTER(?pop > 200000)
+  ${rf}
+  ${excludeNoSV}
+  ?place rdfs:label ?engName FILTER(LANG(?engName) = 'en') .
+  ${uiPart}
+  ${nativePart}
+  BIND(geof:latitude(?coord) AS ?lat)
+  BIND(geof:longitude(?coord) AS ?lon)
+}
+ORDER BY RAND() LIMIT 50`;
+}
+
+async function fetchPool(regionKey){
+  try{
+    const url='https://query.wikidata.org/sparql?format=json&query='+encodeURIComponent(buildSparql(regionKey));
+    const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),14000);
+    const r=await fetch(url,{headers:{Accept:'application/sparql-results+json'},signal:ctrl.signal});
+    clearTimeout(tid);if(!r.ok)throw 0;
+    const j=await r.json();
+    const locs=j.results.bindings.map(b=>{
+      const engName=b.engName?.value;
+      const localName=b.localName?.value;
+      const nativeName=b.nativeName?.value;
+      const displayName=localName||engName;
+      return{n:displayName,nat:(nativeName&&nativeName!==displayName?nativeName:null),lat:+b.lat.value,lng:+b.lon.value};
+    }).filter(l=>!isNaN(l.lat)&&!isNaN(l.lng)&&l.n);
+    if(locs.length<5)throw 0;
+    return shuffle(locs);
+  }catch{return null;}
+}
+
+// ══════════════════════════════════════════════════ STREET VIEW
+
+async function checkSVCoverage(lat,lng){
+  const cbk=`https://cbk0.google.com/cbk?output=json&ll=${lat},${lng}&radius=500`;
+  const proxies=[
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(cbk)}`,
+    `https://corsproxy.io/?${encodeURIComponent(cbk)}`,
+  ];
+  for(const url of proxies){
+    try{
+      const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),5000);
+      const r=await fetch(url,{signal:ctrl.signal});clearTimeout(tid);if(!r.ok)continue;
+      const text=await r.text();
+      // No coverage
+      if(!text||text.trim()==='{}'||text.trim()==='null'||text.length<20)return{ok:false,panoId:null};
+      // Indoor panoramas (Google Business View, photospheres) — skip
+      if(/"INDOOR"|"indoor_level"|"pano_is_owned_by_google"\s*:\s*false/.test(text))return{ok:false,panoId:null};
+      // Require at least 3 navigation links — ensures walkable outdoor street view
+      const navLinks=(text.match(/"heading"\s*:\s*\d/g)||[]).length;
+      if(navLinks<3)return{ok:false,panoId:null};
+      const m=text.match(/"panoId"\s*:\s*"([^"]+)"/);
+      return{ok:true,panoId:m?m[1]:null};
+    }catch{continue;}
+  }
+  return{ok:null,panoId:null};
+}
+
+function loadSVIframe(lat,lng,panoId){
+  return new Promise(resolve=>{
+    let done=false;
+    const settle=v=>{if(!done){done=true;resolve(v);}};
+    const timer=setTimeout(()=>settle(false),9000);
+    sv.onload=()=>{clearTimeout(timer);setTimeout(()=>{try{void sv.contentDocument.body.innerHTML;settle(false);}catch{settle(true);}},2000);};
+    sv.onerror=()=>{clearTimeout(timer);settle(false);};
+    sv.src=`https://www.google.com/maps?q=&layer=c&cbll=${lat},${lng}${panoId?`&panoid=${panoId}`:''}&cbp=12,0,0,0,0&output=svembed`;
+  });
+}
+
+async function loadSV(lat,lng){
+  const{ok,panoId}=await checkSVCoverage(lat,lng);
+  if(ok===false)return false;
+  return loadSVIframe(lat,lng,panoId);
+}
+
+// ══════════════════════════════════════════════════ UTILS
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function haversine(la1,lo1,la2,lo2){const R=6371,r=x=>x*Math.PI/180,dLa=r(la2-la1),dLo=r(lo2-lo1);const a=Math.sin(dLa/2)**2+Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLo/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function calcScore(km){
+  const{maxKm,zeroKm,penalty}=DIFF_CFG[cfg.diff];
+  if(km<=maxKm) return 5000;
+  if(km<=zeroKm) return Math.round(5000*(zeroKm-km)/(zeroKm-maxKm));
+  return -Math.round((km-zeroKm)*penalty);
+}
+function locDisplay(loc){return(loc.nat&&loc.nat!==loc.n)?`${loc.n} (${loc.nat})`:loc.n;}
+function rating(sc,mx){const p=sc/mx;if(p<.20)return t('rating_lost');if(p<.40)return t('rating_tourist');if(p<.60)return t('rating_explorer');if(p<.78)return t('rating_nav');if(p<.92)return t('rating_carto');return t('rating_geo');}
+
+function showLoad(msg){$('load-msg').textContent=msg||'…';loadEl.classList.remove('off');}
+function hideLoad(){loadEl.classList.add('off');}
+
+// ══════════════════════════════════════════════════ BACKGROUND POOL REFILL
+
+async function refillPool(){
+  if(poolFilling)return;
+  poolFilling=true;
+  try{
+    while(readyPool.length<5){
+      if(pool.length===0){
+        const fresh=await fetchPool(cfg.region);
+        const fb=FB[cfg.region]||FB.world;
+        pool=fresh??shuffle([...fb]);
+      }
+      const base=pool.pop();
+      if(!base)break;
+      // Add jitter to land on actual streets, not just city centers
+      const candidate=jitter(base);
+      const key=locKey(candidate);
+      if(usedKeys.has(key))continue; // skip duplicates
+      const{ok,panoId}=await checkSVCoverage(candidate.lat,candidate.lng);
+      if(ok===true){
+        usedKeys.add(key);
+        readyPool.push({...candidate,panoId:panoId||null});
+      }
+    }
+  }finally{poolFilling=false;}
+}
+
+// ══════════════════════════════════════════════════ ROUND
+
+async function startRound(){
+  showLoad(t('loading'));
+  confirmBtn.disabled=true;confirmBtn.classList.remove('ready');
+  confirmBtn.textContent=t('confirm_btn');
+  if(pin){gMap.removeLayer(pin);pin=null;}
+  gMap.setView([20,0],2);
+
+  let loc = null;
+
+  // 1. Try pre-validated pool first — instant
+  if(readyPool.length>0){
+    loc=readyPool.shift();
+  }
+
+  // 2. If pool is empty — validate on the fly with CBK check (same as refillPool)
+  if(!loc){
+    let tries=0;
+    while(!loc&&tries<14){
+      if(pool.length===0){
+        const fresh=await fetchPool(cfg.region);
+        const fb=FB[cfg.region]||FB.world;
+        pool=fresh??shuffle([...fb]);
+      }
+      const base=pool.pop();
+      if(!base){tries++;continue;}
+      const candidate=jitter(base);
+      const key=locKey(candidate);
+      if(usedKeys.has(key)){tries++;continue;}
+      const{ok,panoId}=await checkSVCoverage(candidate.lat,candidate.lng);
+      if(ok===true){
+        usedKeys.add(key);
+        loc={...candidate,panoId:panoId||null};
+      }
+      tries++;
+    }
+  }
+
+  // 3. Absolute last resort — hardcoded city (always has SV)
+  if(!loc){
+    const fb=FB[cfg.region]||FB.world;
+    loc={...fb[Math.floor(Math.random()*fb.length)],panoId:null};
+  }
+
+  cur=loc;
+  sv.src=`https://www.google.com/maps?q=&layer=c&cbll=${cur.lat},${cur.lng}${cur.panoId?`&panoid=${cur.panoId}`:''}&cbp=12,0,0,0,0&output=svembed`;
+  await new Promise(r=>setTimeout(r,2000));
+
+  refillPool();
+  hideLoad();
+  BGM.play('game');
+  startTimer(TIME_VALUES[cfg.timeIdx]);
+}
+
+// ══════════════════════════════════════════════════ CONFIRM
+
+function confirmGuess(){
+  stopTimer();
+  // Stop urgent alarm immediately — result screen begins
+  AudioEngine.stopAll(); _bgmState = null;
+  if(!pin||!cur)return;
+  const g=pin.getLatLng();
+  const km=haversine(cur.lat,cur.lng,g.lat,g.lng);
+  const pts=calcScore(km);
+  const usedTime=isFinite(roundTime)?roundTime-timeLeft:0;
+  score+=pts;
+  const sEl=$('sval');
+  sEl.textContent=score.toLocaleString();
+  $('score-disp').classList.toggle('score-neg',score<0);
+  hist.push({round,name:locDisplay(cur),km:Math.round(km),pts,time:usedTime});
+  playResult(pts);
+  showResult(g,km,pts);
+}
+
+// ══════════════════════════════════════════════════ RESULT
+
+function showResult(guess,km,pts){
+  const name=locDisplay(cur);
+  $('rloc').textContent=name;
+  $('rdiff-info').textContent=`${Math.round(km).toLocaleString()} ${t('km_away')}`;
+  const rpts=$('rpts');
+  if(pts>=0){
+    rpts.textContent=`+${pts.toLocaleString()}`;
+    rpts.style.color='var(--yellow)';
+  }else{
+    rpts.textContent=pts.toLocaleString();
+    rpts.style.color='var(--red)';
+  }
+  const{maxKm,zeroKm}=DIFF_CFG[cfg.diff];
+  let hint='';
+  if(km<=maxKm) hint=' · ✓ perfect';
+  else if(km<=zeroKm) hint=` · ${Math.round(zeroKm-km)} km to zero`;
+  else hint=` · −${Math.round(km-zeroKm)} km over`;
+  $('rdiff-info').textContent=`${Math.round(km).toLocaleString()} ${t('km_away')}${hint}`;
+  $('rtotal').textContent=`${t('total_lbl')}: ${score.toLocaleString()} / ${(5000*cfg.rounds).toLocaleString()}`;
+  $('next-btn').textContent=round>=cfg.rounds?t('see_results'):t('next_round');
+  resultOv.classList.add('on');
+
+  if(rMap){rMap.remove();rMap=null;}
+  rMap=L.map('rmap',{attributionControl:false,zoomControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:18,subdomains:'abcd'}).addTo(rMap);
+
+  const aLL=L.latLng(cur.lat,cur.lng),gLL=L.latLng(guess.lat,guess.lng);
+  L.marker(aLL,{icon:mkIcon('#4cbb6a',18)}).addTo(rMap).bindTooltip(name,{permanent:true,direction:'top'});
+  L.marker(gLL,{icon:mkIcon('#e94560',16)}).addTo(rMap).bindTooltip(t('your_guess'),{permanent:false,direction:'top'});
+
+  const line=L.polyline([aLL,gLL],{color:'rgba(254,205,25,.8)',weight:2.5,dashArray:'7 5',className:'rline'}).addTo(rMap);
+  setTimeout(()=>{const el=line.getElement();if(el){try{const len=el.getTotalLength();el.style.strokeDasharray=len;el.style.strokeDashoffset=len;el.style.transition='stroke-dashoffset 1.2s ease-out';requestAnimationFrame(()=>{el.style.strokeDashoffset='0';});}catch{}}},200);
+
+  rMap.fitBounds(L.latLngBounds([aLL,gLL]).pad(.35), { maxZoom: 12 });
+}
+
+// ══════════════════════════════════════════════════ END GAME
+
+function endGame(){
+  stopTimer();
+  resultOv.classList.remove('on');
+  showFinal();
+}
+
+// ══════════════════════════════════════════════════ NEXT
+
+function onNext(){
+  resultOv.classList.remove('on');
+  if(round>=cfg.rounds){showFinal();return;}
+  round++;$('rnum').textContent=round;
+  startRound();
+}
+
+// ══════════════════════════════════════════════════ FINAL
+
+function showFinal(){
+  showScreen('final');
+  const completedRounds=hist.length;
+  const max=5000*completedRounds;
+  $('fdenom').textContent=`/ ${max.toLocaleString()}`;
+  $('frating').textContent=rating(score,Math.max(max,1));
+  $('fcfg').textContent=`${completedRounds} ${completedRounds===1?'round':'rounds'}`;
+
+  // Color final score
+  const fnumEl=$('fnum');
+  fnumEl.style.color=score<0?'var(--red)':'var(--yellow)';
+
+  const tb=$('ftbody');tb.innerHTML='';
+  hist.forEach(r=>{
+    const ptsColor=r.pts>=0?'var(--yellow)':'var(--red)';
+    const ptsText=r.pts>=0?`+${r.pts.toLocaleString()}`:r.pts.toLocaleString();
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.round}</td><td>${r.name}</td><td>${r.km.toLocaleString()} km</td><td>${r.time}s</td><td style="color:${ptsColor}">${ptsText}</td>`;
+    tb.appendChild(tr);
+  });
+
+  const target=score,dur=2000,t0=performance.now();
+  playFinal(score,max);
+  saveGameStats(score,completedRounds);
+  saveHighScore(score,completedRounds,cfg.diff,cfg.region,cfg.timeIdx);
+  (function tick(now){
+    const p=Math.min((now-t0)/dur,1),ease=1-(1-p)**3;
+    const val=Math.round(target*ease);
+    fnumEl.textContent=val.toLocaleString();
+    fnumEl.style.color=val<0?'var(--red)':'var(--yellow)';
+    if(p<1)requestAnimationFrame(tick);
+  })(t0);
+}
+
+// ══════════════════════════════════════════════════ START GAME
+
+function setNoMove(on){
+  $('no-move-overlay').classList.toggle('active',on);
+  $('no-move-badge').classList.toggle('visible',on);
+}
+
+async function startGame(){
+  round=1;score=0;hist=[];
+  readyPool=[];poolFilling=false;usedKeys=new Set();
+  $('sval').textContent='0';$('rnum').textContent='1';$('rtotal-rounds').textContent=cfg.rounds;
+  $('score-disp').classList.remove('score-neg');
+  resultOv.classList.remove('on');
+  showScreen('game');playStart();
+  $('timer-track').style.opacity='1';
+  // Master = No Move
+  setNoMove(cfg.diff==='master');
+  // Novice = show country input
+  const ciWrap=$('country-input-wrap');
+  if(ciWrap) ciWrap.classList.toggle('visible',cfg.diff==='novice');
+
+  showLoad(t('fetching'));
+  const fresh=await fetchPool(cfg.region);
+  const fb=FB[cfg.region]||FB.world;
+  pool=fresh??shuffle([...fb]);
+  if(pool.length<cfg.rounds*3)pool=[...pool,...shuffle([...fb]),...shuffle([...fb])];
+
+  buildGMap();
+  // Start background validation immediately
+  refillPool();
+  await startRound();
+}
+
+// ══════════════════════════════════════════════════ STATS SCREEN
+
+function showStats(){
+  showScreen('stats');
+  const s=getStats();
+  $('st-games').textContent=s.gamesPlayed;
+  $('st-rounds').textContent=s.totalRounds;
+  $('st-avg').textContent=s.totalMax>0?Math.round(s.totalScore/s.totalMax*100)+'%':'—';
+  $('st-best').textContent=s.bestScore.toLocaleString();
+  const hist=$('st-history');
+  if(s.history.length===0){hist.innerHTML=`<div class="hist-row"><span style="color:var(--muted)">No games yet</span></div>`;return;}
+  hist.innerHTML=s.history.slice(0,10).map(g=>{
+    const pct=g.max>0?Math.round(g.score/g.max*100):0;
+    const d=new Date(g.date).toLocaleDateString();
+    return `<div class="hist-row"><span>${g.rounds} rounds · ${pct}%</span><span class="hist-score">${g.score.toLocaleString()}</span><span class="hist-date">${d}</span></div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════ COUNTRY AUTOCOMPLETE
+
+function searchCountry(q){
+  if(!q.trim())return[];
+  const ql=q.toLowerCase();
+  return COUNTRIES.filter(c=>c.n.toLowerCase().includes(ql)).slice(0,8);
+}
+
+function initCountryInput(){
+  const inp=$('ci-input'), res=$('ci-results');
+  if(!inp)return;
+  inp.addEventListener('input',()=>{
+    const matches=searchCountry(inp.value);
+    if(!matches.length){res.innerHTML='';return;}
+    res.innerHTML=matches.map((c,i)=>`<button class="ci-item" data-i="${i}">${c.n}</button>`).join('');
+    res.querySelectorAll('.ci-item').forEach((btn,i)=>{
+      btn.addEventListener('click',()=>{
+        const c=matches[i];
+        if(pin)gMap.removeLayer(pin);
+        const ll=L.latLng(c.lat,c.lng);
+        pin=L.marker(ll,{icon:mkIcon('#e94560',14)}).addTo(gMap);
+        gMap.setView(ll,4);
+        confirmBtn.disabled=false;confirmBtn.classList.add('ready');
+        confirmBtn.textContent=t('confirm_btn');
+        inp.value=c.n;res.innerHTML='';
+        playClick();
+      });
+    });
+  });
+  // Clear on round start
+  inp.value='';res.innerHTML='';
+}
+
+// ══════════════════════════════════════════════════ INIT
+
+function initUI(){
+  // Language dropdown
+  const picker=$('lang-picker'),trigger=$('lang-trigger'),drop=$('lang-drop'),search=$('lang-search');
+  trigger.addEventListener('click',e=>{e.stopPropagation();picker.classList.toggle('open');if(picker.classList.contains('open'))search.focus();});
+  document.addEventListener('click',()=>picker.classList.remove('open'));
+  drop.addEventListener('click',e=>e.stopPropagation());
+  search.addEventListener('input',()=>{
+    const q=search.value.toLowerCase();
+    document.querySelectorAll('.lang-opt').forEach(o=>{
+      o.classList.toggle('hidden',q.length>0&&!o.dataset.label.toLowerCase().includes(q));
+    });
+  });
+  document.querySelectorAll('.lang-opt').forEach(b=>b.addEventListener('click',()=>{
+    setLang(b.dataset.lang);
+    $('lt-flag').textContent=b.dataset.flag;
+    $('lt-name').textContent=b.dataset.label;
+    document.querySelectorAll('.lang-opt').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    picker.classList.remove('open');
+    search.value='';
+    document.querySelectorAll('.lang-opt').forEach(o=>o.classList.remove('hidden'));
+    playClick();
+  }));
+
+  // Difficulty
+  document.querySelectorAll('.diff-card').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.diff-card').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel');cfg.diff=b.dataset.diff;playClick();
+  }));
+
+  // Rounds slider
+  const rSlider=$('rounds-slider');
+  const ROUNDS_VALS=[3,5,10,15,20];
+  function updateRounds(){
+    const idx=+rSlider.value;cfg.rounds=ROUNDS_VALS[idx];
+    const fill=((idx/4)*100).toFixed(1)+'%';
+    rSlider.style.setProperty('--fill',fill);
+    $('rounds-display').textContent=cfg.rounds;
+    document.querySelectorAll('#rounds-ticks span').forEach((s,i)=>s.classList.toggle('tick-active',i===idx));
+  }
+  rSlider.addEventListener('input',updateRounds);
+  document.querySelectorAll('#rounds-ticks span').forEach(s=>s.addEventListener('click',()=>{rSlider.value=s.dataset.idx;updateRounds();playClick();}));
+  updateRounds();
+
+  // Regions
+  document.querySelectorAll('.region-chip').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.region-chip').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel');cfg.region=b.dataset.region;playClick();
+  }));
+
+  // Time slider
+  const tSlider=$('time-slider');
+  function updateTime(){
+    const idx=+tSlider.value;cfg.timeIdx=idx;
+    const fill=((idx/5)*100).toFixed(1)+'%';
+    tSlider.style.setProperty('--fill',fill);
+    $('time-display').textContent=(TIME_DISPLAY[currentLang]||TIME_DISPLAY.en)[idx];
+    document.querySelectorAll('#time-ticks span').forEach((s,i)=>s.classList.toggle('tick-active',i===idx));
+  }
+  tSlider.addEventListener('input',updateTime);
+  document.querySelectorAll('#time-ticks span').forEach(s=>s.addEventListener('click',()=>{tSlider.value=s.dataset.idx;updateTime();playClick();}));
+  updateTime();
+
+  // Buttons
+  $('play-btn').addEventListener('click',startGame);
+  $('confirm-btn').addEventListener('click',()=>{if(!confirmBtn.disabled)confirmGuess();});
+  $('next-btn').addEventListener('click',onNext);
+  $('play-again').addEventListener('click',startGame);
+  $('change-cfg').addEventListener('click',()=>showScreen('start'));
+  $('end-game-btn').addEventListener('click',()=>endGame());
+  $('stats-btn').addEventListener('click',()=>showStats());
+  $('stats-back').addEventListener('click',()=>showScreen('start'));
+  $('stats-clear').addEventListener('click',()=>{
+    try{localStorage.removeItem(STATS_KEY);localStorage.removeItem(HS_KEY);}catch{}
+    showStats();
+  });
+
+  mapPanel.addEventListener('transitionend',()=>{if(gMap)gMap.invalidateSize();});
+  mapWrap.addEventListener('transitionend',()=>{if(gMap)gMap.invalidateSize();});
+  initCountryInput();
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+  // Audio mute buttons — HUD (in-game) + start screen
+  const sfxHud=$('mute-sfx-btn'), musHud=$('mute-mus-btn');
+  if(sfxHud) sfxHud.addEventListener('click', toggleSFX);
+  if(musHud) musHud.addEventListener('click', toggleMusic);
+  const sfxStart2=$('start-mute-sfx'), musStart2=$('start-mute-mus');
+  if(sfxStart2) sfxStart2.addEventListener('click', toggleSFX);
+  if(musStart2) musStart2.addEventListener('click', toggleMusic);
+}
+
+// ══════════════════════════════════════════════════ SPLASH ANIMATION
+
+(function(){
+  const canvas = document.getElementById('splash-canvas');
+  if (!canvas) return;
+  // Size canvas to screen
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const stars = Array.from({length:80},()=>({
+    x:Math.random(), y:Math.random(),
+    r:Math.random()*1.4+0.3,
+    speed:Math.random()*0.4+0.1,
+    phase:Math.random()*Math.PI*2
+  }));
+  const particles = Array.from({length:18},()=>({
+    x:Math.random(), y:Math.random(),
+    vx:(Math.random()-.5)*0.0005, vy:(Math.random()-.5)*0.0005,
+    r:Math.random()*0.004+0.001,
+    op:Math.random()*0.3+0.06
+  }));
+
+  function rrPath(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  }
+
+  function drawSplash(ctx, W, H, t) {
+    ctx.clearRect(0,0,W,H);
+    // Sky gradient
+    const sky=ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,'#02070e'); sky.addColorStop(0.4,'#030f1e');
+    sky.addColorStop(0.7,'#050d1a'); sky.addColorStop(1,'#020810');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+    // Ambient glow
+    const a1=ctx.createRadialGradient(W*.3,H*.2,0,W*.3,H*.2,W*.5);
+    a1.addColorStop(0,`rgba(15,50,145,${0.14+Math.sin(t*.018)*.04})`);
+    a1.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=a1; ctx.fillRect(0,0,W,H);
+    // Stars
+    stars.forEach(s=>{
+      const pulse=0.3+Math.sin(t*s.speed+s.phase)*0.45;
+      ctx.beginPath(); ctx.arc(s.x*W,s.y*H*.65,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(180,215,255,${pulse*.6})`; ctx.fill();
+    });
+    // Floating particles
+    particles.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0)p.x=1; if(p.x>1)p.x=0;
+      if(p.y<0)p.y=1; if(p.y>1)p.y=0;
+      ctx.beginPath(); ctx.arc(p.x*W,p.y*H,p.r*W,0,Math.PI*2);
+      ctx.fillStyle=`rgba(59,130,246,${p.op})`; ctx.fill();
+    });
+    // Grid lines
+    const gr=H*.58;
+    for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(0,gr+i*H*.055);ctx.lineTo(W,gr+i*H*.055);ctx.strokeStyle=`rgba(25,65,155,${0.04+i*.006})`;ctx.lineWidth=0.5;ctx.stroke();}
+    for(let i=0;i<12;i++){ctx.beginPath();ctx.moveTo(i*W/11,gr);ctx.lineTo(i*W/11,H);ctx.strokeStyle='rgba(25,65,155,0.03)';ctx.lineWidth=0.5;ctx.stroke();}
+    // Pin
+    const float=Math.sin(t*.038)*H*.012;
+    const pinX=W/2, pinY=H*.36+float, pinR=Math.min(W,H)*.1;
+    // Pin glow
+    const glowR=ctx.createRadialGradient(pinX,pinY,0,pinX,pinY,pinR*2.2);
+    glowR.addColorStop(0,`rgba(59,130,246,${0.16+Math.sin(t*.038)*.05})`);
+    glowR.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=glowR; ctx.fillRect(pinX-pinR*2.2,pinY-pinR*2.2,pinR*4.4,pinR*4.4);
+    ctx.save();
+    ctx.shadowColor=`rgba(59,130,246,${0.55+Math.sin(t*.038)*.1})`;
+    ctx.shadowBlur=pinR*.7;
+    // Pin body
+    const body=ctx.createRadialGradient(pinX-pinR*.3,pinY-pinR*.5,pinR*.05,pinX,pinY,pinR+pinR*.3);
+    body.addColorStop(0,'#a8d4ff'); body.addColorStop(0.2,'#60a5fa');
+    body.addColorStop(0.55,'#2563eb'); body.addColorStop(1,'#1e3a8a');
+    ctx.beginPath();
+    ctx.moveTo(pinX,pinY+pinR+pinR*.62);
+    ctx.bezierCurveTo(pinX-pinR*.22,pinY+pinR+pinR*.38, pinX-pinR-pinR*.18,pinY+pinR*.42, pinX-pinR-pinR*.18,pinY-pinR*.08);
+    ctx.arc(pinX,pinY-pinR*.08,pinR+pinR*.18,Math.PI,0,false);
+    ctx.bezierCurveTo(pinX+pinR+pinR*.18,pinY+pinR*.42, pinX+pinR*.22,pinY+pinR+pinR*.38, pinX,pinY+pinR+pinR*.62);
+    ctx.fillStyle=body; ctx.fill();
+    // Pin shine
+    const shine=ctx.createRadialGradient(pinX-pinR*.38,pinY-pinR*.6,pinR*.03,pinX-pinR*.2,pinY-pinR*.3,pinR);
+    shine.addColorStop(0,'rgba(255,255,255,0.65)'); shine.addColorStop(0.32,'rgba(255,255,255,0.18)'); shine.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath();
+    ctx.moveTo(pinX,pinY+pinR+pinR*.62);
+    ctx.bezierCurveTo(pinX-pinR*.22,pinY+pinR+pinR*.38, pinX-pinR-pinR*.18,pinY+pinR*.42, pinX-pinR-pinR*.18,pinY-pinR*.08);
+    ctx.arc(pinX,pinY-pinR*.08,pinR+pinR*.18,Math.PI,0,false);
+    ctx.bezierCurveTo(pinX+pinR+pinR*.18,pinY+pinR*.42, pinX+pinR*.22,pinY+pinR+pinR*.38, pinX,pinY+pinR+pinR*.62);
+    ctx.fillStyle=shine; ctx.fill();
+    ctx.restore();
+    // Pin hole
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,30,0.9)'; ctx.shadowBlur=pinR*.22; ctx.shadowOffsetY=pinR*.06;
+    const hole=ctx.createRadialGradient(pinX-pinR*.14,pinY-pinR*.3,pinR*.02,pinX,pinY-pinR*.08,pinR*.42);
+    hole.addColorStop(0,'#d8eeff'); hole.addColorStop(0.28,'#3b6fd4'); hole.addColorStop(1,'#040d22');
+    ctx.beginPath(); ctx.arc(pinX,pinY-pinR*.08,pinR*.42,0,Math.PI*2); ctx.fillStyle=hole; ctx.fill();
+    ctx.beginPath(); ctx.arc(pinX-pinR*.18,pinY-pinR*.3,pinR*.14,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.fill();
+    ctx.restore();
+    // Shadow under pin
+    const sdw=ctx.createRadialGradient(W/2,pinY+pinR*1.15,0,W/2,pinY+pinR*1.15,pinR*1.1);
+    sdw.addColorStop(0,`rgba(59,130,246,${0.2+Math.sin(t*.038)*.06})`); sdw.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.ellipse(W/2,pinY+pinR*1.15,pinR*.7,pinR*.22,0,0,Math.PI*2); ctx.fillStyle=sdw; ctx.fill();
+    // Glass card
+    const cardH=H*.15, cardY=H*.55;
+    rrPath(ctx,W/2-W*.3,cardY,W*.6,cardH,W*.025);
+    const cardBg=ctx.createLinearGradient(W/2-W*.3,cardY,W/2+W*.3,cardY+cardH);
+    cardBg.addColorStop(0,'rgba(255,255,255,0.065)'); cardBg.addColorStop(1,'rgba(255,255,255,0.02)');
+    ctx.fillStyle=cardBg; ctx.fill();
+    // Title
+    const titleSize=Math.min(W*.12,H*.075);
+    ctx.save();
+    ctx.font=`800 ${titleSize}px Nunito,system-ui,sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,0.97)';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(59,130,246,0.5)'; ctx.shadowBlur=W*.03;
+    ctx.fillText('PinRoam',W/2,cardY+cardH*.38);
+    ctx.restore();
+    // Subtitle
+    ctx.save();
+    ctx.font=`500 ${Math.min(W*.032,H*.02)}px DM Sans,system-ui,sans-serif`;
+    ctx.fillStyle='rgba(90,140,220,0.7)'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('EXPLORE  ·  GUESS  ·  DISCOVER',W/2,cardY+cardH*.75);
+    ctx.restore();
+  }
+
+  let splashT=0, splashRaf=null;
+  function splashLoop(){
+    drawSplash(canvas.getContext('2d'), canvas.width, canvas.height, splashT++);
+    splashRaf = requestAnimationFrame(splashLoop);
+  }
+  splashLoop();
+
+  // Store cleanup function for boot to call
+  window._stopSplash = function(){
+    if(splashRaf){ cancelAnimationFrame(splashRaf); splashRaf=null; }
+  };
+})();
+
+// ══════════════════════════════════════════════════ BOOT
+
+initUI();
+applyI18n();
+updateMuteUI();
+
+(function bootSplash(){
+  const overlay = $('splash-overlay');
+  if(!overlay){ hideLoad(); showScreen('start'); return; }
+  setTimeout(()=>{
+    overlay.classList.add('fade-out');
+    setTimeout(()=>{
+      if(window._stopSplash) window._stopSplash();
+      overlay.style.display='none';
+      hideLoad();
+      showScreen('start');
+    }, 650);
+  }, 2200);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>PinRoam Icon</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:24px;font-family:system-ui,sans-serif;}
+  .sizes{display:flex;gap:32px;align-items:flex-end;flex-wrap:wrap;justify-content:center;}
+  .size-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .size-label{color:#444;font-size:11px;letter-spacing:2px;}
+  canvas{display:block;border-radius:22.4%;}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+  button{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:12px;letter-spacing:1px;}
+  button:hover{background:rgba(255,255,255,0.1);color:#fff;}
+  .hint{color:#333;font-size:11px;letter-spacing:1px;}
+</style>
+</head>
+<body>
+
+<div class="sizes">
+  <div class="size-wrap"><canvas id="c16" width="16" height="16"></canvas><div class="size-label">16</div></div>
+  <div class="size-wrap"><canvas id="c32" width="32" height="32"></canvas><div class="size-label">32</div></div>
+  <div class="size-wrap"><canvas id="c64" width="64" height="64"></canvas><div class="size-label">64</div></div>
+  <div class="size-wrap"><canvas id="c128" width="128" height="128"></canvas><div class="size-label">128</div></div>
+  <div class="size-wrap"><canvas id="c180" width="180" height="180"></canvas><div class="size-label">180 (iOS)</div></div>
+  <div class="size-wrap"><canvas id="c512" width="512" height="512"></canvas><div class="size-label">512</div></div>
+</div>
+
+<div class="controls">
+  <button onclick="exportPNG(16,'pinroam-16.png')">↓ 16px</button>
+  <button onclick="exportPNG(32,'pinroam-32.png')">↓ 32px</button>
+  <button onclick="exportPNG(64,'pinroam-64.png')">↓ 64px</button>
+  <button onclick="exportPNG(180,'pinroam-180.png')">↓ 180px iOS</button>
+  <button onclick="exportPNG(512,'pinroam-512.png')">↓ 512px</button>
+  <button onclick="exportAll()">↓ All sizes</button>
+</div>
+<div class="hint">Animate: live preview · Export: static PNG</div>
+
+<script>
+const sizes=[16,32,64,128,180,512];
+const canvases={};
+sizes.forEach(s=>{ canvases[s]=document.getElementById('c'+s); });
+
+function rr(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function drawIcon(ctx, S, t){
+  const cx=S/2, cy=S/2;
+  ctx.clearRect(0,0,S,S);
+
+  const R=S*0.2;
+  rr(ctx,0,0,S,S,R);
+  const bg=ctx.createRadialGradient(S*0.35,S*0.28,0,cx,cy,S*0.62);
+  bg.addColorStop(0,'#0e2244');
+  bg.addColorStop(0.5,'#071628');
+  bg.addColorStop(1,'#030c18');
+  ctx.fillStyle=bg; ctx.fill();
+
+  rr(ctx,0,0,S,S,R); ctx.clip();
+
+  if(S>=32){
+    const gr=S*0.55;
+    for(let i=0;i<5;i++){
+      ctx.beginPath();
+      ctx.moveTo(0,gr+i*S*0.09);
+      ctx.lineTo(S,gr+i*S*0.09);
+      ctx.strokeStyle=`rgba(30,70,160,${0.05+i*0.008})`;
+      ctx.lineWidth=S*0.003; ctx.stroke();
+    }
+    for(let i=0;i<6;i++){
+      ctx.beginPath();
+      ctx.moveTo(i*S/5,gr); ctx.lineTo(i*S/5,S);
+      ctx.strokeStyle='rgba(30,70,160,0.04)';
+      ctx.lineWidth=S*0.003; ctx.stroke();
+    }
+  }
+
+  const float=t?Math.sin(t*0.04)*S*0.015:0;
+  const pinX=cx, pinY=cy*0.95+float;
+  const pinR=S*0.185;
+
+  ctx.save();
+  ctx.shadowColor=`rgba(59,130,246,${0.55+Math.sin((t||0)*0.04)*0.08})`;
+  ctx.shadowBlur=S*0.12;
+
+  const body=ctx.createRadialGradient(pinX-pinR*0.32,pinY-pinR*0.5,S*0.01,pinX,pinY,pinR+S*0.12);
+  body.addColorStop(0,'#9ecfff');
+  body.addColorStop(0.22,'#60a5fa');
+  body.addColorStop(0.55,'#2563eb');
+  body.addColorStop(1,'#1e3a8a');
+
+  ctx.beginPath();
+  ctx.moveTo(pinX, pinY+pinR+S*0.1);
+  ctx.bezierCurveTo(pinX-S*0.04,pinY+pinR+S*0.06, pinX-pinR-S*0.03,pinY+pinR*0.4, pinX-pinR-S*0.03,pinY-S*0.03);
+  ctx.arc(pinX,pinY-S*0.03,pinR+S*0.03,Math.PI,0,false);
+  ctx.bezierCurveTo(pinX+pinR+S*0.03,pinY+pinR*0.4, pinX+S*0.04,pinY+pinR+S*0.06, pinX,pinY+pinR+S*0.1);
+  ctx.fillStyle=body; ctx.fill();
+
+  const shine=ctx.createRadialGradient(pinX-pinR*0.38,pinY-pinR*0.6,S*0.005,pinX-pinR*0.22,pinY-pinR*0.32,pinR);
+  shine.addColorStop(0,'rgba(255,255,255,0.62)');
+  shine.addColorStop(0.35,'rgba(255,255,255,0.18)');
+  shine.addColorStop(1,'rgba(255,255,255,0.0)');
+  ctx.beginPath();
+  ctx.moveTo(pinX, pinY+pinR+S*0.1);
+  ctx.bezierCurveTo(pinX-S*0.04,pinY+pinR+S*0.06, pinX-pinR-S*0.03,pinY+pinR*0.4, pinX-pinR-S*0.03,pinY-S*0.03);
+  ctx.arc(pinX,pinY-S*0.03,pinR+S*0.03,Math.PI,0,false);
+  ctx.bezierCurveTo(pinX+pinR+S*0.03,pinY+pinR*0.4, pinX+S*0.04,pinY+pinR+S*0.06, pinX,pinY+pinR+S*0.1);
+  ctx.fillStyle=shine; ctx.fill();
+
+  const rim=ctx.createLinearGradient(pinX-pinR,pinY-pinR,pinX+pinR,pinY+pinR);
+  rim.addColorStop(0,'rgba(255,255,255,0.28)'); rim.addColorStop(1,'rgba(0,20,100,0.35)');
+  ctx.beginPath(); ctx.arc(pinX,pinY-S*0.03,pinR+S*0.03,0,Math.PI*2);
+  ctx.strokeStyle=rim; ctx.lineWidth=S*0.005; ctx.stroke();
+  ctx.restore();
+
+  if(S>=32){
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,30,0.9)'; ctx.shadowBlur=S*0.04; ctx.shadowOffsetY=S*0.01;
+    const hole=ctx.createRadialGradient(pinX-S*0.025,pinY-pinR*0.28,S*0.005,pinX,pinY-S*0.03,pinR*0.44);
+    hole.addColorStop(0,'#cce5ff'); hole.addColorStop(0.3,'#3b6fd4'); hole.addColorStop(1,'#040d22');
+    ctx.beginPath(); ctx.arc(pinX,pinY-S*0.03,pinR*0.44,0,Math.PI*2);
+    ctx.fillStyle=hole; ctx.fill();
+    ctx.beginPath(); ctx.arc(pinX-pinR*0.2,pinY-pinR*0.32,pinR*0.14,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.38)'; ctx.fill();
+    ctx.restore();
+  }
+
+  const sdw=ctx.createRadialGradient(cx,S*0.82,0,cx,S*0.82,S*0.14);
+  sdw.addColorStop(0,`rgba(59,130,246,${0.18+Math.sin((t||0)*0.04)*0.06})`);
+  sdw.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.ellipse(cx,S*0.82,S*0.12,S*0.04,0,0,Math.PI*2);
+  ctx.fillStyle=sdw; ctx.fill();
+
+  const topShine=ctx.createLinearGradient(0,0,S*0.55,S*0.38);
+  topShine.addColorStop(0,'rgba(255,255,255,0.11)');
+  topShine.addColorStop(0.4,'rgba(255,255,255,0.04)');
+  topShine.addColorStop(1,'rgba(255,255,255,0.0)');
+  ctx.fillStyle=topShine; ctx.fillRect(0,0,S,S);
+
+  ctx.beginPath();
+  ctx.ellipse(S*0.32,S*0.1,S*0.22,S*0.055,0,0,Math.PI*2);
+  const pill=ctx.createRadialGradient(S*0.32,S*0.1,0,S*0.32,S*0.1,S*0.22);
+  pill.addColorStop(0,'rgba(255,255,255,0.2)');
+  pill.addColorStop(1,'rgba(255,255,255,0.0)');
+  ctx.fillStyle=pill; ctx.fill();
+
+  rr(ctx,0,0,S,S,R);
+  ctx.strokeStyle='rgba(255,255,255,0.13)';
+  ctx.lineWidth=S*0.006; ctx.stroke();
+}
+
+let t=0;
+function loop(){
+  sizes.forEach(s=>{ drawIcon(canvases[s].getContext('2d'),s,t); });
+  t++; requestAnimationFrame(loop);
+}
+loop();
+
+function exportPNG(size,filename){
+  const c=document.createElement('canvas');
+  c.width=size; c.height=size;
+  drawIcon(c.getContext('2d'),size,0);
+  const a=document.createElement('a');
+  a.href=c.toDataURL('image/png');
+  a.download=filename; a.click();
+}
+
+function exportAll(){
+  [16,32,64,180,512].forEach((s,i)=>{
+    setTimeout(()=>exportPNG(s,`pinroam-${s}.png`),i*200);
+  });
+}
+</script>
+</body>
+</html>

@@ -39,6 +39,26 @@ jobs:
           name: pinroam-windows
           path: electron/dist/*.exe
 
+  # ── Build Electron macOS DMG ─────────────────────────────────────
+  build-electron-mac:
+    name: Build Electron (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install & Build
+        working-directory: electron
+        run: |
+          npm install
+          npx electron-builder --mac
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinroam-mac
+          path: electron/dist/*.dmg
+
   # ── Build Android APK ───────────────────────────────────────────
   build-android:
     name: Build Android APK
@@ -80,3 +100,15 @@ jobs:
           name: pinroam-android
           path: android/app/build/outputs/apk/release/PinRoam-*.apk
 
+  # ── Deploy CF Worker ────────────────────────────────────────────
+  deploy-worker:
+    name: Deploy CF Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cf-worker

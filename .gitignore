@@ -7,3 +7,4 @@ android/.gradle/
 *.log
 *.tmp
 gen_icons.py
+electron/dist/

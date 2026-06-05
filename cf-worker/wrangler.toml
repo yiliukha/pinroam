@@ -1,6 +1,7 @@
 name = "pinroam-downloads"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+account_id = "bca021036113f33dd7ab43d808270fc3"
 
 [vars]
 PAGES_URL = "https://pinroam.pages.dev"

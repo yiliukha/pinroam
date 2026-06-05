@@ -15,8 +15,8 @@ jobs:
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy www --project-name=pinroam --commit-dirty=true
 
   # ── Build Electron Windows installer ────────────────────────────
@@ -92,6 +92,6 @@ jobs:
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: cf-worker

@@ -1,38 +1,75 @@
-// PinRoam Downloads Worker
-// Serves a download page with links to the latest installers
+const GITHUB_OWNER = 'yiliukha'
+const GITHUB_REPO  = 'pinroam'
+const APP_NAME     = 'PinRoam'
+const PAGES_URL    = 'https://pinroam.pages.dev'
 
-const DOWNLOADS = {
-  windows: {
-    label: 'Windows',
-    icon: '🪟',
-    file: 'PinRoam-Setup-1.0.0.exe',
-    note: 'Windows 10+, x64',
-  },
-  linux: {
-    label: 'Linux',
-    icon: '🐧',
-    file: 'PinRoam-1.0.0.AppImage',
-    note: 'AppImage, x64',
-  },
-  android: {
-    label: 'Android',
-    icon: '🤖',
-    file: 'PinRoam-1.0.0.apk',
-    note: 'Android 7+',
-  },
-};
+function detectOS(ua) {
+  if (/Android/i.test(ua))              return 'android'
+  if (/Windows NT/i.test(ua))           return 'windows'
+  if (/Macintosh|Mac OS X/i.test(ua))   return 'mac'
+  return 'linux'
+}
 
-const R2_BASE = 'https://pub-pinroam.r2.dev'; // update after R2 bucket creation
+function findAsset(assets, os) {
+  if (os === 'android') return assets.find(a => a.name.endsWith('.apk'))
+  if (os === 'windows') return assets.find(a => a.name.endsWith('.exe') && !a.name.endsWith('.blockmap'))
+  if (os === 'mac')     return assets.find(a => a.name.endsWith('.dmg') && !a.name.endsWith('.blockmap'))
+  return assets.find(a => a.name.endsWith('.AppImage'))
+}
 
-function html(env) {
-  const cards = Object.entries(DOWNLOADS).map(([key, d]) => `
-    <a class="card" href="${R2_BASE}/${d.file}" download>
-      <span class="icon">${d.icon}</span>
-      <span class="label">${d.label}</span>
-      <span class="note">${d.note}</span>
-      <span class="dl">↓ Download</span>
-    </a>`).join('');
+function mimeType(name) {
+  if (name.endsWith('.apk'))      return 'application/vnd.android.package-archive'
+  if (name.endsWith('.exe'))      return 'application/x-msdownload'
+  if (name.endsWith('.dmg'))      return 'application/x-apple-diskimage'
+  if (name.endsWith('.AppImage')) return 'application/x-executable'
+  return 'application/octet-stream'
+}
 
+async function handleDownload(request, env) {
+  const ua = request.headers.get('User-Agent') || ''
+  const os = detectOS(ua)
+
+  let release = null
+  try {
+    const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'CF-Worker/1.0' }
+    if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`
+    const ghRes = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+      { headers }
+    )
+    if (ghRes.ok) release = await ghRes.json()
+  } catch (_) {}
+
+  if (!release) {
+    return new Response(comingSoonHTML(os), {
+      status: 200,
+      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+    })
+  }
+
+  const asset = findAsset(release.assets || [], os)
+  if (!asset) {
+    return new Response(comingSoonHTML(os), {
+      status: 200,
+      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+    })
+  }
+
+  const fileRes = await fetch(asset.browser_download_url)
+  if (!fileRes.ok) return new Response('Download unavailable', { status: 502 })
+
+  return new Response(fileRes.body, {
+    headers: {
+      'Content-Type': mimeType(asset.name),
+      'Content-Disposition': `attachment; filename="${asset.name}"`,
+      'Content-Length': asset.size.toString(),
+      'Cache-Control': 'no-cache',
+    }
+  })
+}
+
+function comingSoonHTML(os) {
+  const labels = { android: 'Android APK', windows: 'Windows', mac: 'macOS', linux: 'Linux' }
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,51 +77,30 @@ function html(env) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PinRoam — Download</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#071628;color:#e2e8f0;font-family:system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;padding:32px}
-  h1{font-size:2rem;letter-spacing:0.04em;color:#60a5fa}
-  h1 span{color:#e2e8f0;font-weight:300}
-  .sub{color:#64748b;font-size:0.9rem;letter-spacing:0.05em}
-  .cards{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
-  .card{display:flex;flex-direction:column;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 36px;text-decoration:none;color:#e2e8f0;transition:all .2s;cursor:pointer;min-width:160px}
-  .card:hover{background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.3);transform:translateY(-2px)}
-  .icon{font-size:2.4rem}
-  .label{font-size:1.1rem;font-weight:600}
-  .note{font-size:0.75rem;color:#64748b}
-  .dl{margin-top:6px;font-size:0.8rem;color:#60a5fa;letter-spacing:0.08em}
-  .pwa{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 24px;font-size:0.9rem;color:#94a3b8}
-  .pwa a{color:#60a5fa;text-decoration:none}
-  .pwa a:hover{text-decoration:underline}
-  footer{color:#334155;font-size:0.75rem}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0c0c18;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;text-align:center;}
+.icon{font-size:72px;margin-bottom:20px;}
+h1{font-size:1.8rem;font-weight:800;margin-bottom:8px;color:#fff;}
+p{color:rgba(255,255,255,.45);font-size:.95rem;line-height:1.6;max-width:300px;margin-bottom:28px;}
+a{display:inline-block;padding:13px 28px;border-radius:12px;background:#7950e5;color:#fff;text-decoration:none;font-weight:700;font-size:.95rem;}
+a:hover{background:#9b74f5;}
 </style>
 </head>
 <body>
-  <div>
-    <h1>Pin<span>Roam</span></h1>
-    <p class="sub">EXPLORE · GUESS · DISCOVER</p>
-  </div>
-  <div class="cards">${cards}</div>
-  <div class="pwa">
-    🌐&nbsp; Play instantly in browser:&nbsp;
-    <a href="https://pinroam.pages.dev" target="_blank">pinroam.pages.dev</a>
-  </div>
-  <footer>© 2025 PinRoam</footer>
+<div class="icon">🌍</div>
+<h1>${labels[os] || os} — Coming Soon</h1>
+<p>The native ${labels[os] || os} build is in progress. Play now in your browser!</p>
+<a href="${PAGES_URL}">Play PinRoam →</a>
 </body>
-</html>`;
+</html>`
 }
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-
-    // Redirect /download/* to R2
-    if (url.pathname.startsWith('/download/')) {
-      const file = url.pathname.replace('/download/', '');
-      return Response.redirect(`${R2_BASE}/${file}`, 302);
+    const url = new URL(request.url)
+    if (url.pathname === '/download' || url.pathname === '/') {
+      return handleDownload(request, env)
     }
-
-    return new Response(html(env), {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' },
-    });
-  },
-};
+    return new Response('Not found', { status: 404 })
+  }
+}

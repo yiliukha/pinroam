@@ -437,6 +437,103 @@ input[type=range]#rounds-slider::-moz-range-thumb{
   #lang-strip{position:relative;top:auto;right:auto;margin-bottom:12px}
   .start-wrap{padding-top:18px}
 }
+
+/* ── INSTALL GATE ─────────────────────────────────────────── */
+#pr-install-gate{
+  position:fixed;inset:0;z-index:99999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#080814 0%,#0e0e1e 60%,#0a0a18 100%);
+  padding:32px 24px;overflow-y:auto;
+}
+.ig-logo{display:flex;flex-direction:column;align-items:center;margin-bottom:28px;}
+.ig-icon{font-size:64px;margin-bottom:12px;line-height:1;}
+.ig-name{font-size:26px;font-weight:800;letter-spacing:.04em;color:#fff;font-family:'Nunito',sans-serif;margin-bottom:4px;}
+.ig-tagline{font-size:9px;letter-spacing:3.5px;color:rgba(255,255,255,.22);text-transform:uppercase;}
+.ig-card{
+  width:100%;max-width:320px;border-radius:18px;
+  padding:22px 18px 18px;
+  background:rgba(121,80,229,.07);
+  border:1.5px solid rgba(121,80,229,.35);
+  position:relative;margin-bottom:12px;
+}
+.ig-badge{
+  position:absolute;top:-11px;left:14px;
+  background:#7950e5;color:#fff;
+  font-size:9px;font-weight:700;letter-spacing:1.5px;
+  padding:3px 10px;border-radius:100px;
+}
+.ig-card-title{font-size:14px;font-weight:700;color:#fff;margin-bottom:10px;margin-top:4px;}
+.ig-chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;}
+.ig-chip{
+  font-size:10px;padding:3px 8px;border-radius:6px;
+  background:rgba(121,80,229,.15);color:#9b74f5;
+  border:1px solid rgba(121,80,229,.3);
+}
+.ig-btn-primary{
+  display:block;width:100%;max-width:320px;padding:14px;
+  border-radius:14px;border:none;
+  background:linear-gradient(135deg,#7950e5,#5c3ab5);
+  color:#fff;font-size:15px;font-weight:700;cursor:pointer;
+  text-decoration:none;text-align:center;margin-bottom:10px;
+  font-family:'Nunito','DM Sans',sans-serif;
+}
+.ig-btn-primary:hover{background:linear-gradient(135deg,#9b74f5,#7950e5);}
+.ig-btn-secondary{
+  display:block;width:100%;max-width:320px;padding:13px;
+  border-radius:14px;cursor:pointer;
+  background:transparent;
+  border:1px solid rgba(121,80,229,.4);
+  color:rgba(155,116,245,.85);font-size:13px;font-weight:600;
+  margin-bottom:8px;text-align:center;
+  font-family:'Nunito','DM Sans',sans-serif;
+}
+.ig-btn-ghost{
+  background:none;border:none;color:rgba(255,255,255,.22);
+  font-size:13px;cursor:pointer;padding:8px 0;
+  display:block;margin:4px auto 0;
+  font-family:'DM Sans',sans-serif;
+}
+.ig-divider{
+  display:flex;align-items:center;gap:10px;
+  width:100%;max-width:320px;margin:4px 0 10px;
+}
+.ig-divider::before,.ig-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07);}
+.ig-divider span{font-size:10px;color:rgba(255,255,255,.2);}
+.ig-step-row{
+  display:flex;align-items:center;gap:14px;
+  width:100%;max-width:290px;margin-bottom:12px;
+}
+.ig-step-icon{
+  width:38px;height:38px;border-radius:10px;flex-shrink:0;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.ig-step-text{font-size:13px;color:rgba(255,255,255,.6);line-height:1.45;}
+.ig-pwa-note{font-size:10px;color:rgba(255,255,255,.2);text-align:center;margin-bottom:10px;line-height:1.4;max-width:290px;}
+.ig-dl-desc{
+  font-size:13px;color:rgba(255,255,255,.45);
+  text-align:center;margin-bottom:20px;
+  line-height:1.55;max-width:270px;
+}
+.ig-steps-list{
+  width:100%;max-width:300px;
+  background:rgba(255,255,255,.03);border-radius:12px;
+  padding:14px 16px;margin-bottom:14px;
+}
+/* get-app button on start screen */
+.get-app-btn{
+  width:100%;margin-top:14px;padding:14px 18px;
+  border-radius:14px;border:1.5px solid rgba(121,80,229,.3);
+  background:rgba(121,80,229,.06);cursor:pointer;
+  display:flex;align-items:center;gap:14px;
+  color:#e2e8f0;font-family:'Nunito','DM Sans',sans-serif;
+  transition:background .18s,border-color .18s;
+}
+.get-app-btn:hover{background:rgba(121,80,229,.14);border-color:rgba(121,80,229,.6);}
+.get-app-btn .gab-icon{font-size:1.8rem;flex-shrink:0;}
+.get-app-btn .gab-text{text-align:left;}
+.get-app-btn .gab-title{font-size:.9rem;font-weight:700;margin-bottom:2px;}
+.get-app-btn .gab-desc{font-size:.74rem;color:rgba(255,255,255,.4);}
 </style>
 </head>
 <body>
@@ -572,6 +669,14 @@ input[type=range]#rounds-slider::-moz-range-thumb{
       <span class="start-audio-sep">·</span>
       <button class="start-audio-btn" id="start-mute-mus" title="Music">🎵</button>
     </div>
+
+    <button class="get-app-btn" id="get-app-btn">
+      <div class="gab-icon">📲</div>
+      <div class="gab-text">
+        <div class="gab-title">Get PinRoam App</div>
+        <div class="gab-desc">Android APK · iOS PWA · Desktop</div>
+      </div>
+    </button>
   </div>
 </div>
 
@@ -2088,6 +2193,213 @@ updateMuteUI();
       showScreen('start');
     }, 650);
   }, 2200);
+})();
+
+// Wire up Get App button
+document.getElementById('get-app-btn').addEventListener('click', ()=> PinRoamInstall.show());
+</script>
+
+<!-- ── INSTALL GATE ──────────────────────────────────────── -->
+<script>
+window.PinRoamInstall = (function(){
+  'use strict';
+  var DL = 'https://pinroam-downloads.illluha-evgeniy.workers.dev/download';
+  var _prompt = null;
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); _prompt = e; });
+
+  var T = {
+    uk:{
+      browser:'Продовжити в браузері',
+      androidDesc:'APK — повний доступ, офлайн-режим та кращий досвід.',
+      recommended:'РЕКОМЕНДОВАНО',
+      apkCard:'📦 Android APK',
+      dlApk:'⬇ Завантажити APK',
+      pwaInstall:'📲 Додати на екран',
+      dlFor:'⬇ Завантажити для ',
+      howTo:'Як встановити',
+      desktopDesc:'Грайте у повноекранному режимі без браузера.',
+      features:['✓ Повний доступ','✓ Офлайн','✓ Повний екран'],
+      apkSteps:['Натисніть «Завантажити APK» і дочекайтесь','Налаштування → Безпека → Невідомі джерела','Відкрийте файл → Встановити → готово!'],
+      orQuick:'або швидке встановлення',
+      pwaNote:'Без завантаження — деякі можливості обмежені',
+    },
+    en:{
+      browser:'Continue in browser',
+      androidDesc:'The APK gives full access, offline mode and better performance.',
+      recommended:'RECOMMENDED',
+      apkCard:'📦 Android APK',
+      dlApk:'⬇ Download APK',
+      pwaInstall:'📲 Add to Home Screen',
+      dlFor:'⬇ Download for ',
+      howTo:'How to install',
+      desktopDesc:'Play fullscreen without the browser.',
+      features:['✓ Full access','✓ Offline','✓ Fullscreen'],
+      apkSteps:['Tap Download APK and wait for the file','Settings → Security → Unknown sources → enable','Open the file → Install → done!'],
+      orQuick:'or quick install',
+      pwaNote:'No download needed — some features may be limited',
+    }
+  };
+
+  function ig(k){
+    var l;
+    try{ l=(JSON.parse(localStorage.getItem('pinroam_settings')||'{}')).lang||'en'; }catch{ l='en'; }
+    return (T[l]||T.en)[k];
+  }
+
+  function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true; }
+
+  function detectOS(){
+    var ua=navigator.userAgent;
+    if(/iPhone|iPad|iPod/.test(ua)&&!window.MSStream) return 'ios';
+    if(/Android/.test(ua)) return 'android';
+    if(/Windows NT/.test(ua)) return 'windows';
+    if(/Macintosh|Mac OS X/.test(ua)) return 'mac';
+    return 'linux';
+  }
+  var OS_LABEL={windows:'Windows',mac:'macOS',linux:'Linux'};
+
+  function closeGate(){ var el=document.getElementById('pr-install-gate'); if(el) el.remove(); }
+
+  function logo(){
+    return '<div class="ig-logo">'+
+      '<div class="ig-icon">🌍</div>'+
+      '<div class="ig-name">PinRoam</div>'+
+      '<div class="ig-tagline">Explore · Guess · Discover</div>'+
+    '</div>';
+  }
+
+  function overlay(){
+    closeGate();
+    var el=document.createElement('div');
+    el.id='pr-install-gate';
+    return el;
+  }
+
+  function ghostBtn(label){
+    var b=document.createElement('button');
+    b.className='ig-btn-ghost';
+    b.textContent=label;
+    b.onclick=closeGate;
+    return b;
+  }
+
+  function showIOS(){
+    var el=overlay();
+    el.innerHTML=logo()+
+      '<p class="ig-dl-desc">Add PinRoam to your iPhone:</p>'+
+      '<div class="ig-steps-list">'+
+        [['⬆️','Tap the Share button in Safari'],
+         ['➕','Tap "Add to Home Screen"'],
+         ['✅','Tap "Add" — done!']
+        ].map(function(s){
+          return '<div class="ig-step-row"><div class="ig-step-icon">'+s[0]+'</div><div class="ig-step-text">'+s[1]+'</div></div>';
+        }).join('')+
+      '</div>';
+    el.appendChild(ghostBtn(ig('browser')));
+    document.body.appendChild(el);
+  }
+
+  function showAndroid(){
+    var el=overlay();
+    el.innerHTML=logo();
+
+    var card=document.createElement('div');
+    card.className='ig-card';
+    card.innerHTML=
+      '<div class="ig-badge">'+ig('recommended')+'</div>'+
+      '<div class="ig-card-title">'+ig('apkCard')+'</div>'+
+      '<div class="ig-chips">'+ig('features').map(function(f){return '<span class="ig-chip">'+f+'</span>';}).join('')+'</div>';
+
+    var dlBtn=document.createElement('a');
+    dlBtn.className='ig-btn-primary';
+    dlBtn.href=DL;
+    dlBtn.textContent=ig('dlApk');
+    card.appendChild(dlBtn);
+
+    var stepsTitle=document.createElement('p');
+    stepsTitle.style.cssText='font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.28);margin:12px 0 8px;';
+    stepsTitle.textContent=ig('howTo');
+    card.appendChild(stepsTitle);
+    ig('apkSteps').forEach(function(txt,i){
+      card.innerHTML+='<div class="ig-step-row"><div class="ig-step-icon" style="width:22px;height:22px;font-size:11px;font-weight:700;color:rgba(255,255,255,.6);">'+(i+1)+'</div><div class="ig-step-text">'+txt+'</div></div>';
+    });
+    el.appendChild(card);
+
+    var divider=document.createElement('div');
+    divider.className='ig-divider';
+    divider.innerHTML='<span>'+ig('orQuick')+'</span>';
+    el.appendChild(divider);
+
+    if(_prompt){
+      var pwaBtn=document.createElement('button');
+      pwaBtn.className='ig-btn-secondary';
+      pwaBtn.textContent=ig('pwaInstall');
+      pwaBtn.onclick=function(){
+        _prompt.prompt();
+        _prompt.userChoice.then(function(r){ if(r.outcome==='accepted') closeGate(); });
+      };
+      el.appendChild(pwaBtn);
+    }
+    var note=document.createElement('p');
+    note.className='ig-pwa-note';
+    note.textContent=ig('pwaNote');
+    el.appendChild(note);
+    el.appendChild(ghostBtn(ig('browser')));
+    document.body.appendChild(el);
+  }
+
+  function showDesktop(os){
+    var el=overlay();
+    el.innerHTML=logo()+
+      '<p class="ig-dl-desc">'+ig('desktopDesc')+'</p>';
+
+    var dlBtn=document.createElement('a');
+    dlBtn.className='ig-btn-primary';
+    dlBtn.href=DL;
+    dlBtn.style.maxWidth='320px';
+    dlBtn.textContent=ig('dlFor')+(OS_LABEL[os]||os);
+    el.appendChild(dlBtn);
+
+    if(_prompt){
+      var pwaBtn=document.createElement('button');
+      pwaBtn.className='ig-btn-secondary';
+      pwaBtn.style.maxWidth='320px';
+      pwaBtn.textContent=ig('pwaInstall');
+      pwaBtn.onclick=function(){
+        _prompt.prompt();
+        _prompt.userChoice.then(function(r){ if(r.outcome==='accepted') closeGate(); });
+      };
+      el.appendChild(pwaBtn);
+    }
+    el.appendChild(ghostBtn(ig('browser')));
+    document.body.appendChild(el);
+  }
+
+  function show(){
+    var os=detectOS();
+    if(os==='ios') showIOS();
+    else if(os==='android') showAndroid();
+    else showDesktop(os);
+  }
+
+  function autoShow(){
+    if(isStandalone()) return;
+    if(localStorage.getItem('pinroam_install_dismissed')) return;
+    var os=detectOS();
+    if(os!=='ios'&&os!=='android'&&!_prompt) return;
+    setTimeout(function(){
+      show();
+      localStorage.setItem('pinroam_install_dismissed','1');
+    }, 3500);
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', autoShow);
+  } else {
+    autoShow();
+  }
+
+  return { show: show };
 })();
 </script>
 </body>

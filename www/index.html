@@ -1606,30 +1606,33 @@ async function fetchPool(regionKey){
 }
 
 // ══════════════════════════════════════════════════ STREET VIEW
+// ▶ Get a free Google Maps API key: https://console.cloud.google.com/
+//   Enable: "Maps Embed API" + "Street View Static API"
+//   Restrict to HTTP referrer: pinroam.pages.dev/*
+const GMAPS_KEY = '';
+
+function makeSVUrl(lat,lng,panoId){
+  if(GMAPS_KEY){
+    const p=new URLSearchParams({key:GMAPS_KEY,location:`${lat},${lng}`,heading:'0',pitch:'0',fov:'80'});
+    if(panoId)p.set('pano',panoId);
+    return `https://www.google.com/maps/embed/v1/streetview?${p}`;
+  }
+  // Fallback without key (limited — may show map rather than street view in some browsers)
+  return `https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}${panoId?`&panoid=${panoId}`:''}&cbp=12,0,0,0,0&ie=UTF8&output=embed`;
+}
 
 async function checkSVCoverage(lat,lng){
-  const cbk=`https://cbk0.google.com/cbk?output=json&ll=${lat},${lng}&radius=500`;
-  const proxies=[
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(cbk)}`,
-    `https://corsproxy.io/?${encodeURIComponent(cbk)}`,
-  ];
-  for(const url of proxies){
-    try{
-      const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),5000);
-      const r=await fetch(url,{signal:ctrl.signal});clearTimeout(tid);if(!r.ok)continue;
-      const text=await r.text();
-      // No coverage
-      if(!text||text.trim()==='{}'||text.trim()==='null'||text.length<20)return{ok:false,panoId:null};
-      // Indoor panoramas (Google Business View, photospheres) — skip
-      if(/"INDOOR"|"indoor_level"|"pano_is_owned_by_google"\s*:\s*false/.test(text))return{ok:false,panoId:null};
-      // Require at least 3 navigation links — ensures walkable outdoor street view
-      const navLinks=(text.match(/"heading"\s*:\s*\d/g)||[]).length;
-      if(navLinks<3)return{ok:false,panoId:null};
-      const m=text.match(/"panoId"\s*:\s*"([^"]+)"/);
-      return{ok:true,panoId:m?m[1]:null};
-    }catch{continue;}
-  }
-  return{ok:null,panoId:null};
+  // Without a key: skip the check and accept every Wikidata city (all > 200k pop, most have SV)
+  if(!GMAPS_KEY)return{ok:true,panoId:null};
+  try{
+    const url=`https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&radius=500&source=outdoor&key=${GMAPS_KEY}`;
+    const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),5000);
+    const r=await fetch(url,{signal:ctrl.signal});clearTimeout(tid);
+    if(!r.ok)return{ok:null,panoId:null};
+    const j=await r.json();
+    if(j.status==='OK')return{ok:true,panoId:j.pano_id||null};
+    return{ok:false,panoId:null};
+  }catch{return{ok:null,panoId:null};}
 }
 
 function loadSVIframe(lat,lng,panoId){
@@ -1639,7 +1642,7 @@ function loadSVIframe(lat,lng,panoId){
     const timer=setTimeout(()=>settle(false),9000);
     sv.onload=()=>{clearTimeout(timer);setTimeout(()=>{try{void sv.contentDocument.body.innerHTML;settle(false);}catch{settle(true);}},2000);};
     sv.onerror=()=>{clearTimeout(timer);settle(false);};
-    sv.src=`https://www.google.com/maps?q=&layer=c&cbll=${lat},${lng}${panoId?`&panoid=${panoId}`:''}&cbp=12,0,0,0,0&output=svembed`;
+    sv.src=makeSVUrl(lat,lng,panoId);
   });
 }
 
@@ -1738,7 +1741,7 @@ async function startRound(){
   }
 
   cur=loc;
-  sv.src=`https://www.google.com/maps?q=&layer=c&cbll=${cur.lat},${cur.lng}${cur.panoId?`&panoid=${cur.panoId}`:''}&cbp=12,0,0,0,0&output=svembed`;
+  sv.src=makeSVUrl(cur.lat,cur.lng,cur.panoId);
   await new Promise(r=>setTimeout(r,2000));
 
   refillPool();

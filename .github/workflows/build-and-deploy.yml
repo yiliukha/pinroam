@@ -100,15 +100,4 @@ jobs:
           name: pinroam-android
           path: android/app/build/outputs/apk/release/PinRoam-*.apk
 
-  # ── Deploy CF Worker ────────────────────────────────────────────
-  deploy-worker:
-    name: Deploy CF Worker
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: cf-worker
+  # CF Worker is now www/_worker.js — deployed automatically with pages deploy above

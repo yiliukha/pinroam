@@ -2264,7 +2264,11 @@ window.PinRoamInstall = (function(){
     return (T[l]||T.en)[k];
   }
 
-  function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true; }
+  function isStandalone(){
+    if(window.Capacitor) return true; // native APK/IPA
+    if(location.hostname==='localhost'||location.protocol==='capacitor:') return true;
+    return window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  }
 
   function detectOS(){
     var ua=navigator.userAgent;

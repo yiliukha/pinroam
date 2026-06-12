@@ -2,7 +2,7 @@
   "name": "PinRoam",
   "short_name": "PinRoam",
   "description": "Explore · Guess · Discover — geography guessing game",
-  "start_url": "./",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",

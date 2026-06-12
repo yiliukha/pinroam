@@ -1,14 +1,12 @@
-const CACHE = 'pinroam-v3';
+const CACHE = 'pinroam-v4';
 const SHELL = [
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
+  '/index.html',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
 self.addEventListener('install', e => {
-  // Cache only local shell assets — CDN/API assets cache lazily on first fetch.
-  // addAll with CDN URLs would fail if any CDN is slow and break the whole SW install.
   e.waitUntil(
     caches.open(CACHE)
       .then(c => c.addAll(SHELL))
@@ -37,7 +35,14 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(e.request).catch(() => new Response('', { status: 503 })));
     return;
   }
-  // Cache-first for everything else; always fall back to network then a safe error
+  // Navigation requests (opening the app) → always serve index.html from cache
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      caches.match('/index.html').then(cached => cached || fetch(e.request))
+    );
+    return;
+  }
+  // Cache-first for everything else; lazily cache CDN assets on first fetch
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
